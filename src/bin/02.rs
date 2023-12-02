@@ -11,16 +11,22 @@ pub fn part_one(input: &str) -> Option<u32> {
                 let (game, result) = line.split(':').collect_tuple()?;
                 let game_id: u32 = game[5..].parse().unwrap();
                 let (mut red, mut green, mut blue) = (0, 0, 0);
+                let mut valid = true;
                 for draw in result.split(";") {
                     let re = Regex::new(r"([0-9]+) (red|green|blue)").unwrap();
                     for c in re.captures_iter(draw) {
                         let count: u32 = c.get(1).unwrap().as_str().parse().unwrap();
                         match c.get(2)?.as_str() {
-                            "red" => red += count,
-                            "green" => green += count,
-                            "blue" => blue += count,
+                            "red" => red = count,
+                            "green" => green = count,
+                            "blue" => blue = count,
                             _ => (),
                         }
+                    }
+
+                    if red > 12 || green > 13 || blue > 14 {
+                        valid = false;
+                        break;
                     }
                 }
 
@@ -29,7 +35,7 @@ pub fn part_one(input: &str) -> Option<u32> {
                     red <= 12 && green <= 13 && blue <= 14
                 );
 
-                if red <= 12 && green <= 13 && blue <= 14 {
+                if valid {
                     Some(game_id)
                 } else {
                     None
