@@ -18,31 +18,36 @@ pub fn part_two(input: &str) -> Option<u32> {
     let digits = [
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
     ];
-
-    let new_input = input
-        .split('\n')
-        .map(|line| {
-            let mut new_line = line.to_string();
-
-            loop {
-                match digits
+    Some(
+        input
+            .split('\n')
+            .filter_map(|line| {
+                let text_digit_first_locations = digits
                     .iter()
                     .enumerate()
-                    .filter_map(|(to, from)| new_line.find(*from).map(|v| (from, to + 1, v)))
-                    .min_by_key(|x| x.2)
-                {
-                    Some(sub) => {
-                        new_line = new_line.replacen(sub.0, sub.1.to_string().as_str(), 1);
-                    }
-                    None => break,
-                };
-            }
+                    .filter_map(|(to, from)| line.find(*from).map(|v| (v, to as u32 + 1)));
 
-            new_line
-        })
-        .join("\n");
+                let text_digit_last_locations = digits
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(to, from)| line.rfind(*from).map(|v| (v, to as u32 + 1)));
 
-    part_one(&new_input)
+                let digit_locations = line
+                    .chars()
+                    .enumerate()
+                    .filter(|(_, v)| v.is_numeric())
+                    .map(|(x, y)| (x, y.to_digit(10).unwrap()))
+                    .chain(text_digit_first_locations)
+                    .chain(text_digit_last_locations)
+                    .collect_vec();
+
+                Some(
+                    digit_locations.iter().min_by_key(|x| x.0)?.1 * 10
+                        + digit_locations.iter().max_by_key(|x| x.0)?.1,
+                )
+            })
+            .sum(),
+    )
 }
 
 #[cfg(test)]
