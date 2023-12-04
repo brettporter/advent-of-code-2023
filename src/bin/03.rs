@@ -33,11 +33,11 @@ where
 
 pub fn part_one(input: &str) -> Option<u32> {
     let mut parts = HashMap::new();
-    read_engine_schema(input, |c, _, v, key| {
+    read_engine_schema(input, |c, _, part_num, part_loc| {
         // if the coordinate is a symbol (in this case, not a . or 0-9), add it to the list of parts
         if c != b'.' && (c < b'0' || c > b'9') {
             // add to hashmap with a key for that coordinate to avoid duplicates on that number
-            parts.insert(key, v.parse().unwrap());
+            parts.insert(part_loc, part_num.parse().unwrap());
         }
     });
 
@@ -47,15 +47,15 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let mut gears: HashMap<(i32, i32), Vec<u32>> = HashMap::new();
 
-    read_engine_schema(input, |c, key, v, _| {
+    read_engine_schema(input, |c, gear_loc, part_num, _| {
         // if the coordinate is '*', process it as a gear
         if c == b'*' {
             // Append the number to the list of numbers for that gear (creating the list if none found yet)
-            if let Some(previous) = gears.get_mut(&key) {
-                previous.push(v.parse::<u32>().unwrap());
-            } else {
-                gears.insert(key, vec![v.parse::<u32>().unwrap()]);
-            }
+            let part_num = part_num.parse::<u32>().unwrap();
+            gears
+                .entry(gear_loc)
+                .and_modify(|previous| previous.push(part_num))
+                .or_insert(vec![part_num]);
         }
     });
 
