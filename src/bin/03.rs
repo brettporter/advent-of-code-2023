@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cmp::min, collections::HashMap};
 
 use itertools::Itertools;
 use regex::Regex;
@@ -7,7 +7,7 @@ advent_of_code::solution!(3);
 
 fn read_engine_schema<F>(input: &str, mut process: F)
 where
-    F: FnMut(u8, (i32, i32), &str, (usize, usize)),
+    F: FnMut(u8, (usize, usize), &str, (usize, usize)),
 {
     let re = Regex::new(r"(\d+)").unwrap();
     let lines = input.trim().split('\n').collect_vec();
@@ -17,14 +17,10 @@ where
         for cap in re.captures_iter(line) {
             let v = cap.get(1).unwrap();
             // Search the box surrounding the number, with bounds checking
-            for y in row as i32 - 1..=row as i32 + 1 {
-                if y >= 0 && y < lines.len() as i32 {
-                    for x in v.start() as i32 - 1..v.end() as i32 + 1 {
-                        if x >= 0 && x < line.len() as i32 {
-                            let c = lines[y as usize].as_bytes()[x as usize];
-                            process(c, (x, y), v.as_str(), (v.start(), row));
-                        }
-                    }
+            for y in row.checked_sub(1).unwrap_or(0)..min(row + 2, lines.len()) {
+                for x in v.start().checked_sub(1).unwrap_or(0)..min(v.end() + 1, line.len()) {
+                    let c = lines[y].as_bytes()[x];
+                    process(c, (x, y), v.as_str(), (v.start(), row));
                 }
             }
         }
@@ -45,7 +41,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut gears: HashMap<(i32, i32), Vec<u32>> = HashMap::new();
+    let mut gears: HashMap<(usize, usize), Vec<u32>> = HashMap::new();
 
     read_engine_schema(input, |c, gear_loc, part_num, _| {
         // if the coordinate is '*', process it as a gear
