@@ -1,3 +1,4 @@
+use aoc_parse::{parser, prelude::*};
 use itertools::Itertools;
 use range_collections::RangeSet2;
 
@@ -48,34 +49,26 @@ fn do_mapping(mapping: &Vec<Mapping>, src_value: u64) -> u64 {
 }
 
 fn parse_maps(input: &str) -> Almanac {
-    // Assumption that input is ordered with sequential mappings and we can ignore the x-to-y headers
-    let mut sections = Vec::new();
+    let p = parser!(
+        line("seeds: " repeat_sep(u64, " "))
+        line("")
+        sections(
+            line(string(alpha+) "-to-" string(alpha+) " map:")
+            lines(u64 " " u64 " " u64)
+        )
+    );
 
-    let mut lines = input.trim().split('\n');
-    let seeds = lines.next().unwrap()[7..]
-        .split_ascii_whitespace()
-        .map(|x| x.parse::<u64>().unwrap())
+    let (seeds, _, sec) = p.parse(input).unwrap();
+    let sections = sec
+        .iter()
+        .map(|(_, s)| {
+            s.iter()
+                .map(|&(dst_range_start, src_range_start, range_len)| {
+                    Mapping::new(dst_range_start, src_range_start, range_len)
+                })
+                .collect_vec()
+        })
         .collect_vec();
-
-    lines.next();
-
-    // Loop through each section, and proceed if a header line exists
-    while let Some(_) = lines.next() {
-        // Loop through each line of mappings until we encounter an empty line that gets skipped
-        let section = lines
-            .by_ref()
-            .take_while(|line| !line.is_empty())
-            .map(|line| {
-                let mut numbers = line.split_ascii_whitespace();
-                Mapping::new(
-                    numbers.next().unwrap().parse().unwrap(),
-                    numbers.next().unwrap().parse().unwrap(),
-                    numbers.next().unwrap().parse().unwrap(),
-                )
-            })
-            .collect_vec();
-        sections.push(section);
-    }
 
     Almanac { seeds, sections }
 }

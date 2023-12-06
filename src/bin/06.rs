@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use aoc_parse::{parser, prelude::*};
 
 advent_of_code::solution!(6);
 
@@ -37,21 +37,11 @@ fn find_num_records(time: u64, record: u64) -> u32 {
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut lines = input.split('\n');
-    let times = lines
-        .next()
-        .unwrap()
-        .split_ascii_whitespace()
-        .skip(1)
-        .map(|x| x.parse::<u64>().unwrap())
-        .collect_vec();
-    let records = lines
-        .next()
-        .unwrap()
-        .split_ascii_whitespace()
-        .skip(1)
-        .map(|x| x.parse::<u64>().unwrap())
-        .collect_vec();
+    let p = parser!(
+        line("Time:" string(" "+) repeat_sep(u64," "+))
+        line("Distance:" string(" "+) repeat_sep(u64," "+))
+    );
+    let ((_, times), (_, records)) = p.parse(input).unwrap();
 
     // Enumerate the races and then multiply the number of records for each together
     Some(
@@ -64,23 +54,15 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut lines = input.split('\n');
-    let time = lines
-        .next()
-        .unwrap()
-        .split_ascii_whitespace()
-        .skip(1)
-        .join("")
-        .parse::<u64>()
-        .unwrap();
-    let record = lines
-        .next()
-        .unwrap()
-        .split_ascii_whitespace()
-        .skip(1)
-        .join("")
-        .parse::<u64>()
-        .unwrap();
+    let p = parser!(
+        line("Time:" string(" "+) repeat_sep(string(digit+)," "+))
+        line("Distance:" string(" "+) repeat_sep(string(digit+)," "+))
+    );
+    let ((_, times), (_, records)) = p.parse(input).unwrap();
+    let (time, record) = (
+        times.join("").parse().unwrap(),
+        records.join("").parse().unwrap(),
+    );
 
     Some(find_num_records(time, record))
 }
