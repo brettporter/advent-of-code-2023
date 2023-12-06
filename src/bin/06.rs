@@ -7,6 +7,15 @@ fn calculate_distance(hold_duration: u64, total_time: u64) -> u64 {
     remaining_time * hold_duration
 }
 
+fn find_best_distance(time: u64, record: u64) -> u32 {
+    (0..=time)
+        .filter(|hold_duration| {
+            let distance = calculate_distance(*hold_duration, time);
+            distance > record
+        })
+        .count() as u32
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let mut lines = input.split('\n');
     let times = lines
@@ -16,7 +25,7 @@ pub fn part_one(input: &str) -> Option<u32> {
         .skip(1)
         .map(|x| x.parse::<u64>().unwrap())
         .collect_vec();
-    let distances = lines
+    let records = lines
         .next()
         .unwrap()
         .split_ascii_whitespace()
@@ -25,14 +34,8 @@ pub fn part_one(input: &str) -> Option<u32> {
         .collect_vec();
 
     let mut result = 1;
-    for (race, time) in times.iter().enumerate() {
-        let record = distances[race];
-        result *= (0..=*time)
-            .filter(|hold_duration| {
-                let distance = calculate_distance(*hold_duration, *time);
-                distance > record
-            })
-            .count() as u32;
+    for (race, &time) in times.iter().enumerate() {
+        result *= find_best_distance(time, records[race]);
     }
     Some(result)
 }
@@ -56,14 +59,7 @@ pub fn part_two(input: &str) -> Option<u32> {
         .parse::<u64>()
         .unwrap();
 
-    let mut result = 1;
-    result *= (0..=time)
-        .filter(|hold_duration| {
-            let distance = calculate_distance(*hold_duration, time);
-            distance > record
-        })
-        .count() as u32;
-    Some(result)
+    Some(find_best_distance(time, record))
 }
 
 #[cfg(test)]
