@@ -2,26 +2,26 @@ use itertools::Itertools;
 
 advent_of_code::solution!(6);
 
-fn calculate_distance(hold_duration: u32, total_time: u32) -> u32 {
+fn calculate_distance(hold_duration: u64, total_time: u64) -> u64 {
     let remaining_time = total_time - hold_duration;
     remaining_time * hold_duration
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
     let mut lines = input.split('\n');
-    let times = &lines
+    let times = lines
         .next()
         .unwrap()
         .split_ascii_whitespace()
         .skip(1)
-        .map(|x| x.parse::<u32>().unwrap())
+        .map(|x| x.parse::<u64>().unwrap())
         .collect_vec();
-    let distances = &lines
+    let distances = lines
         .next()
         .unwrap()
         .split_ascii_whitespace()
         .skip(1)
-        .map(|x| x.parse::<u32>().unwrap())
+        .map(|x| x.parse::<u64>().unwrap())
         .collect_vec();
 
     let mut result = 1;
@@ -38,7 +38,32 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let mut lines = input.split('\n');
+    let time = lines
+        .next()
+        .unwrap()
+        .split_ascii_whitespace()
+        .skip(1)
+        .join("")
+        .parse::<u64>()
+        .unwrap();
+    let record = lines
+        .next()
+        .unwrap()
+        .split_ascii_whitespace()
+        .skip(1)
+        .join("")
+        .parse::<u64>()
+        .unwrap();
+
+    let mut result = 1;
+    result *= (0..=time)
+        .filter(|hold_duration| {
+            let distance = calculate_distance(*hold_duration, time);
+            distance > record
+        })
+        .count() as u32;
+    Some(result)
 }
 
 #[cfg(test)]
@@ -63,6 +88,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(71503));
     }
 }
