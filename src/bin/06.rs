@@ -7,13 +7,33 @@ fn calculate_distance(hold_duration: u64, total_time: u64) -> u64 {
     remaining_time * hold_duration
 }
 
-fn find_best_distance(time: u64, record: u64) -> u32 {
-    for hold_duration in 0..=time {
-        if calculate_distance(hold_duration, time) > record {
-            return (time - hold_duration * 2 + 1) as u32;
+fn find_num_records(time: u64, record: u64) -> u32 {
+    // The results will be symmetrical over time, and once we have found a record distance,
+    // they will continue being a record until reaching the same symmetrical point.
+    //
+    // Here we count the number of non-records starting at 0 to the midpoint by conducting a binary
+    // search until we find the lowest distance that gives a record.
+    //
+    // The number of records will be the total time, less twice the number of non-records.
+
+    let mut l = 0;
+    let mut r = (time + 1) / 2;
+
+    while l != r {
+        if r - l == 1 {
+            // avoid getting stuck on the boundary
+            l = r;
+            continue;
+        }
+
+        let m = (r - l) / 2 + l;
+        if calculate_distance(m, time) > record {
+            r = m;
+        } else {
+            l = m;
         }
     }
-    0
+    (time - l * 2 + 1) as u32
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -33,11 +53,12 @@ pub fn part_one(input: &str) -> Option<u32> {
         .map(|x| x.parse::<u64>().unwrap())
         .collect_vec();
 
+    // Enumerate the races and then multiply the number of records for each together
     Some(
         times
             .iter()
             .enumerate()
-            .map(|(race, &time)| find_best_distance(time, records[race]))
+            .map(|(race, &time)| find_num_records(time, records[race]))
             .product(),
     )
 }
@@ -61,7 +82,7 @@ pub fn part_two(input: &str) -> Option<u32> {
         .parse::<u64>()
         .unwrap();
 
-    Some(find_best_distance(time, record))
+    Some(find_num_records(time, record))
 }
 
 #[cfg(test)]
