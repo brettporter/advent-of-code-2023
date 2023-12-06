@@ -8,12 +8,12 @@ fn calculate_distance(hold_duration: u64, total_time: u64) -> u64 {
 }
 
 fn find_best_distance(time: u64, record: u64) -> u32 {
-    (0..=time)
-        .filter(|hold_duration| {
-            let distance = calculate_distance(*hold_duration, time);
-            distance > record
-        })
-        .count() as u32
+    for hold_duration in 0..=time {
+        if calculate_distance(hold_duration, time) > record {
+            return (time - hold_duration * 2 + 1) as u32;
+        }
+    }
+    0
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
