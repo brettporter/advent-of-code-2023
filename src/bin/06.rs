@@ -33,11 +33,13 @@ pub fn part_one(input: &str) -> Option<u32> {
         .map(|x| x.parse::<u64>().unwrap())
         .collect_vec();
 
-    let mut result = 1;
-    for (race, &time) in times.iter().enumerate() {
-        result *= find_best_distance(time, records[race]);
-    }
-    Some(result)
+    Some(
+        times
+            .iter()
+            .enumerate()
+            .map(|(race, &time)| find_best_distance(time, records[race]))
+            .product(),
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
