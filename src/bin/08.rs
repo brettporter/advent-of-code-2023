@@ -33,7 +33,7 @@ fn traverse_map(
     let mut pos = start;
     let mut count = 0;
     while !pos.ends_with('Z') {
-        // get the nexxt instruction, looping to the start after all are read
+        // get the next instruction, looping to the start after all are read
         let inst = instructions[count % instructions.len()];
         pos = &maps[pos][inst];
         count += 1;
@@ -41,15 +41,15 @@ fn traverse_map(
     count
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<usize> {
     let (instructions, maps) = parse_maps(input);
 
     let count = traverse_map("AAA", &instructions, &maps);
 
-    Some(count as u32)
+    Some(count)
 }
 
-pub fn part_two(input: &str) -> Option<u64> {
+pub fn part_two(input: &str) -> Option<usize> {
     let (instructions, maps) = parse_maps(input);
 
     // calculate the distance to the destination of each possible start point
@@ -64,7 +64,7 @@ pub fn part_two(input: &str) -> Option<u64> {
     // This works because of an assumption in the input data - it is structed such that continuing
     // to traverse past the destination will reach the same destination again in the same distance
     // as the original route.
-    counts.reduce(|acc, e| acc.lcm(&e)).map(|x| x as u64)
+    counts.reduce(|acc, e| acc.lcm(&e))
 }
 
 #[cfg(test)]

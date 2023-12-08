@@ -113,7 +113,7 @@ impl PartialEq for Hand {
     }
 }
 
-fn calculate_result(input: &str, with_joker: bool) -> u32 {
+fn calculate_result(input: &str, with_joker: bool) -> usize {
     // read hand and bid, then sort by rank low -> high
     let bids = input
         .trim()
@@ -131,16 +131,16 @@ fn calculate_result(input: &str, with_joker: bool) -> u32 {
     // multiply rank (i + 1) by the bid for each hand, then return the sum
     let result = bids
         .enumerate()
-        .map(|(i, bid)| (i as u32 + 1) * bid[1].parse::<u32>().unwrap())
+        .map(|(i, bid)| (i + 1) * bid[1].parse::<usize>().unwrap())
         .sum();
     result
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<usize> {
     Some(calculate_result(input, false))
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<usize> {
     Some(calculate_result(input, true))
 }
 

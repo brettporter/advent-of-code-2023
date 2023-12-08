@@ -73,18 +73,18 @@ fn parse_maps(input: &str) -> Almanac {
     Almanac { seeds, sections }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<u64> {
     let almanac = parse_maps(input);
 
     // For each seed, map it to the location based on the almanac, then determine the minimum value
     almanac
         .seeds
         .iter()
-        .map(|seed| almanac.map_to_location(*seed) as u32)
+        .map(|seed| almanac.map_to_location(*seed))
         .min()
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<u64> {
     let almanac = parse_maps(input);
 
     // Take the pairs from the seeds and turn them into ranges to being with
@@ -132,7 +132,7 @@ pub fn part_two(input: &str) -> Option<u32> {
     }
 
     // For each of the final ranges, get the minimum of the lower bound on the range
-    src.iter().map(|r| r.boundaries()[0] as u32).min()
+    src.iter().map(|r| r.boundaries()[0]).min()
 }
 
 #[cfg(test)]

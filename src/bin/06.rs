@@ -7,7 +7,7 @@ fn calculate_distance(hold_duration: u64, total_time: u64) -> u64 {
     remaining_time * hold_duration
 }
 
-fn find_num_records(time: u64, record: u64) -> u32 {
+fn find_num_records(time: u64, record: u64) -> u64 {
     // The results will be symmetrical over time, and once we have found a record distance,
     // they will continue being a record until reaching the same symmetrical point.
     //
@@ -33,10 +33,10 @@ fn find_num_records(time: u64, record: u64) -> u32 {
             l = m;
         }
     }
-    (time - l * 2 + 1) as u32
+    time - l * 2 + 1
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<u64> {
     let p = parser!(
         line("Time:" string(" "+) repeat_sep(u64," "+))
         line("Distance:" string(" "+) repeat_sep(u64," "+))
@@ -53,7 +53,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<u64> {
     let p = parser!(
         line("Time:" string(" "+) repeat_sep(string(digit+)," "+))
         line("Distance:" string(" "+) repeat_sep(string(digit+)," "+))
