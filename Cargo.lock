@@ -29,6 +29,7 @@ dependencies = [
  "pico-args",
  "range-collections",
  "regex",
+ "rust-freqdist",
  "tinyjson",
 ]
 
@@ -488,6 +489,12 @@ name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
+
+[[package]]
+name = "rust-freqdist"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca136c6f6d53a2de7264bb392ea7c1f83357e00d131a24275b1661ea1c23c3af"
 
 [[package]]
 name = "rustc-demangle"
