@@ -35,7 +35,7 @@ impl Hand {
 
 fn card_value(c: char) -> u8 {
     match c {
-        'j' => 1,
+        'j' => 1, // joker has lowest value
         '2' => 2,
         '3' => 3,
         '4' => 4,
@@ -59,6 +59,8 @@ fn calc_rank(s: &str) -> HandCount {
         f.insert(c);
     }
 
+    // Go through the calculated frequency distribution of each card type that is present,
+    // remove jokers, and sort in descending order
     let mut combos = f
         .iter_non_zero()
         .filter(|&k| *k != 'j')
@@ -68,9 +70,11 @@ fn calc_rank(s: &str) -> HandCount {
         .collect_vec();
 
     if combos.is_empty() {
-        // 5 jokers
+        // Special case: 5 jokers
         return HandCount::FiveOfAKind;
     }
+
+    // Add jokers to the highest frequency card, this will always result in best hand
     combos[0] += f.get(&'j');
 
     match combos.as_slice() {
@@ -92,6 +96,7 @@ impl Ord for Hand {
 
 impl PartialOrd for Hand {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // Compare hands by rank
         let result = self.rank.partial_cmp(&other.rank).unwrap();
         if result == Ordering::Equal {
             Some(self.value.cmp(&other.value))
@@ -102,12 +107,14 @@ impl PartialOrd for Hand {
 }
 
 impl PartialEq for Hand {
+    // Compare hands by rank
     fn eq(&self, other: &Self) -> bool {
         self.rank.eq(&other.rank)
     }
 }
 
 fn calculate_result(input: &str, with_joker: bool) -> u32 {
+    // read hand and bid, then sort by rank low -> high
     let bids = input
         .trim()
         .split('\n')
@@ -121,6 +128,7 @@ fn calculate_result(input: &str, with_joker: bool) -> u32 {
             }
         });
 
+    // multiply rank (i + 1) by the bid for each hand, then return the sum
     let result = bids
         .enumerate()
         .map(|(i, bid)| (i as u32 + 1) * bid[1].parse::<u32>().unwrap())
@@ -179,6 +187,7 @@ mod tests {
     #[test]
     fn test_part_two() {
         assert_eq!(Hand::new("QjjQ2").rank, HandCount::FourOfAKind);
+
         assert!(Hand::new("QQQQ2") > Hand::new("jKKK2")); // 4 of a kind - stronger card
 
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));

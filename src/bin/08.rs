@@ -19,6 +19,8 @@ fn parse_maps(input: &str) -> (Vec<usize>, HashMap<String, [String; 2]>) {
     for map in maps_definition {
         maps.insert(map.0, [map.1, map.2]);
     }
+
+    // instructions is a vector of 0 = L, 1 = R; maps is src => dest(L, R)
     (instructions, maps)
 }
 
@@ -27,9 +29,11 @@ fn traverse_map(
     instructions: &Vec<usize>,
     maps: &HashMap<String, [String; 2]>,
 ) -> usize {
+    // calculate the distance from the start to a destination
     let mut pos = start;
     let mut count = 0;
     while !pos.ends_with('Z') {
+        // get the nexxt instruction, looping to the start after all are read
         let inst = instructions[count % instructions.len()];
         pos = &maps[pos][inst];
         count += 1;
@@ -48,11 +52,18 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u64> {
     let (instructions, maps) = parse_maps(input);
 
+    // calculate the distance to the destination of each possible start point
     let starts = maps.keys().filter(|k| k.ends_with('A')).collect_vec();
     let counts = starts
         .iter()
         .map(|start| traverse_map(start, &instructions, &maps));
 
+    // Calculate the least common multiple of the routes - this will be the point in time that each
+    // of the routes land at a destination at the same time.
+    //
+    // This works because of an assumption in the input data - it is structed such that continuing
+    // to traverse past the destination will reach the same destination again in the same distance
+    // as the original route.
     counts.reduce(|acc, e| acc.lcm(&e)).map(|x| x as u64)
 }
 
