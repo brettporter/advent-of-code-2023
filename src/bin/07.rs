@@ -35,6 +35,7 @@ impl Hand {
 
 fn card_value(c: char) -> u8 {
     match c {
+        'j' => 1,
         '2' => 2,
         '3' => 3,
         '4' => 4,
@@ -58,15 +59,27 @@ fn calc_rank(s: &str) -> HandCount {
         f.insert(c);
     }
 
-    let combos = f.iter_non_zero().map(|k| f.get(k)).sorted().collect_vec();
+    let mut combos = f
+        .iter_non_zero()
+        .filter(|&k| *k != 'j')
+        .map(|k| f.get(k))
+        .sorted()
+        .rev()
+        .collect_vec();
+
+    if combos.is_empty() {
+        // 5 jokers
+        return HandCount::FiveOfAKind;
+    }
+    combos[0] += f.get(&'j');
 
     match combos.as_slice() {
         [5] => HandCount::FiveOfAKind,
-        [1, 4] => HandCount::FourOfAKind,
-        [2, 3] => HandCount::FullHouse,
-        [1, 1, 3] => HandCount::ThreeOfAKind,
-        [1, 2, 2] => HandCount::TwoPair,
-        [1, 1, 1, 2] => HandCount::OnePair,
+        [4, 1] => HandCount::FourOfAKind,
+        [3, 2] => HandCount::FullHouse,
+        [3, 1, 1] => HandCount::ThreeOfAKind,
+        [2, 2, 1] => HandCount::TwoPair,
+        [2, 1, 1, 1] => HandCount::OnePair,
         _ => HandCount::Nothing,
     }
 }
@@ -94,22 +107,33 @@ impl PartialEq for Hand {
     }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+fn calculate_result(input: &str, with_joker: bool) -> u32 {
     let bids = input
         .trim()
         .split('\n')
         .map(|line| line.split_ascii_whitespace().collect_vec())
-        .sorted_by_key(|v| Hand::new(v[0]));
+        .sorted_by_key(|v| {
+            let hand = v[0];
+            if with_joker {
+                Hand::new(hand.replace('J', "j").as_str())
+            } else {
+                Hand::new(hand)
+            }
+        });
 
-    Some(
-        bids.enumerate()
-            .map(|(i, bid)| (i as u32 + 1) * bid[1].parse::<u32>().unwrap())
-            .sum(),
-    )
+    let result = bids
+        .enumerate()
+        .map(|(i, bid)| (i as u32 + 1) * bid[1].parse::<u32>().unwrap())
+        .sum();
+    result
+}
+
+pub fn part_one(input: &str) -> Option<u32> {
+    Some(calculate_result(input, false))
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    Some(calculate_result(input, true))
 }
 
 #[cfg(test)]
@@ -154,7 +178,10 @@ mod tests {
 
     #[test]
     fn test_part_two() {
+        assert_eq!(Hand::new("QjjQ2").rank, HandCount::FourOfAKind);
+        assert!(Hand::new("QQQQ2") > Hand::new("jKKK2")); // 4 of a kind - stronger card
+
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(5905));
     }
 }
