@@ -2,10 +2,16 @@ use aoc_parse::{parser, prelude::*};
 
 advent_of_code::solution!(9);
 
-fn solve_equation(equation: &[i32]) -> i32 {
-    println!("Solving {:?}", equation);
+fn solve_equation(equation: &[i32], backwards: bool) -> i32 {
+    // Solve recursively by generating the diffs and then solving again,
+    // finally returning the element to generate. This element is either
+    // added to the last element to append to the list and returned up,
+    // or subtracted from the first element to prepend to the list and
+    // returned up.
+
+    // If all the elements are 0 we are done and return the new 0
+    // element to help generate the next difference.
     if equation.iter().all(|i| *i == 0) {
-        println!("Got 0");
         return 0;
     }
 
@@ -14,48 +20,32 @@ fn solve_equation(equation: &[i32]) -> i32 {
         diffs.push(equation[i] - equation[i - 1]);
     }
 
-    let result = solve_equation(&diffs);
-    println!(
-        "Got {result} {} for {:?}",
-        equation.last().unwrap() + result,
-        equation
-    );
-    equation.last().unwrap() + result
+    let result = solve_equation(&diffs, backwards);
+    if backwards {
+        equation.first().unwrap() - result
+    } else {
+        equation.last().unwrap() + result
+    }
 }
 
-fn solve_equation_back(equation: &[i32]) -> i32 {
-    println!("Solving {:?}", equation);
-    if equation.iter().all(|i| *i == 0) {
-        println!("Got 0");
-        return 0;
-    }
+fn solve(input: &str, backwards: bool) -> Option<i32> {
+    let p = parser!(lines(line(repeat_sep(i32, " "))));
+    let v = p.parse(input).unwrap();
 
-    let mut diffs = Vec::new();
-    for i in 1..equation.len() {
-        diffs.push(equation[i] - equation[i - 1]);
-    }
-
-    let result = solve_equation_back(&diffs);
-    println!(
-        "Got {result} {} for {:?}",
-        equation.first().unwrap() + result,
-        equation
-    );
-    equation.first().unwrap() - result
+    // Solve for the new element to generate in each equation, and then add them together
+    Some(
+        v.iter()
+            .map(|equation| solve_equation(equation, backwards))
+            .sum(),
+    )
 }
 
 pub fn part_one(input: &str) -> Option<i32> {
-    let p = parser!(lines(line(repeat_sep(i32, " "))));
-    let v = p.parse(input).unwrap();
-
-    Some(v.iter().map(|equation| solve_equation(equation)).sum())
+    solve(input, false)
 }
 
 pub fn part_two(input: &str) -> Option<i32> {
-    let p = parser!(lines(line(repeat_sep(i32, " "))));
-    let v = p.parse(input).unwrap();
-
-    Some(v.iter().map(|equation| solve_equation_back(equation)).sum())
+    solve(input, true)
 }
 
 #[cfg(test)]
