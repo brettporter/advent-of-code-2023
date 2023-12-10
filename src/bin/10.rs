@@ -4,7 +4,6 @@ use aoc_parse::{parser, prelude::*};
 use itertools::Itertools;
 use num::FromPrimitive;
 
-extern crate num;
 #[macro_use]
 extern crate num_derive;
 
@@ -46,6 +45,9 @@ fn find_pipe_from_start(
     start_x: usize,
     start_y: usize,
 ) -> (Pipe, Direction) {
+    // We're not told what type of pipe the start is, so look at the surrounding pipes
+    // to determine what the valid connections are.
+
     let mut directions = Vec::new();
 
     // Check north
@@ -77,6 +79,7 @@ fn find_pipe_from_start(
         }
     }
 
+    // Given two directions, find out what the pipe type is
     let pipe = match directions[0] {
         Direction::N => match directions[1] {
             Direction::S => Pipe::NS,
@@ -104,10 +107,13 @@ fn find_pipe_from_start(
         },
     };
 
+    // Return the pipe type, but also one of the valid directions to use as a starting direction
     (pipe, directions.first().unwrap().clone())
 }
 
 fn pipe_direction(direction: &Direction, pipe: &Pipe) -> Direction {
+    // Given we are entering the pipe in the given direction, determine
+    // what the next direction will be based on the pipe type
     match pipe {
         Pipe::NS => {
             if *direction == Direction::N {
@@ -168,11 +174,12 @@ where
     // Find start
     let (start_x, start_y) = find_start(&pipes);
 
-    // Find an available direction
+    // Find the type of pipe start is, and an available direction
     let (start_pipe, mut direction) = find_pipe_from_start(&pipes, start_x, start_y);
     let mut pipe = &start_pipe;
 
-    // Follow direction until return and then return half
+    // Navigate the pipe from the starting point until we return
+    // to the starting point, calling process closure on each location
     let (mut x, mut y) = (start_x, start_y);
     loop {
         process(x, y, &pipe);
@@ -191,6 +198,10 @@ where
 }
 
 fn draw_pipe(seen: &mut Vec<Vec<bool>>, x: usize, y: usize, pipe: &Pipe) {
+    // Draw the pipe shape using a 3x3 grid onto the mask "seen"
+    // Using the shape instead of a single block means that
+    // a fill algorithm can pass through two pipes that are right next
+    // to each other, as specified in the pzuzzel
     let pattern = match pipe {
         Pipe::NS => [0, 1, 0, 0, 1, 0, 0, 1, 0],
         Pipe::EW => [0, 0, 0, 1, 1, 1, 0, 0, 0],
@@ -212,18 +223,24 @@ fn draw_pipe(seen: &mut Vec<Vec<bool>>, x: usize, y: usize, pipe: &Pipe) {
 pub fn part_one(input: &str) -> Option<u32> {
     let mut count = 0;
 
+    // Traverse the main pipe and count the steps
     traverse_map(input, &mut |_, _, _| count += 1);
 
+    // Return half the steps, as this is the furthest point from the start
     Some(count / 2)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     // Assumption that input is < 150 wide and high
+    // Create a mask that makes each pipe a 3x3 grid that we can flood fill
     const SIZE: usize = 150 * 3;
     let mut seen = vec![vec![false; SIZE]; SIZE];
 
+    // Mark the pipe locations as seen
     traverse_map(input, &mut |x, y, pipe| draw_pipe(&mut seen, x, y, pipe));
 
+    // Fill outside the main pipe loop, which will leave the inner sections unseen
+    // We do the fill by following up, down, left, right, and stopping the fill where we encounter something already seen
     let mut to_visit = VecDeque::new();
     // Assumption that this is outside... may need to adjust if not
     to_visit.push_back((0, 0));
@@ -248,19 +265,21 @@ pub fn part_two(input: &str) -> Option<u32> {
         }
     }
 
+    // Count the elements that are not filled. Note that there will be some
+    // pipe squares with unfilled elements, so only count those that are
+    // complete internal squares
     let mut count = 0;
     for y in 0..SIZE / 3 {
         for x in 0..SIZE / 3 {
-            // TODO: maybe just check if that map square is ground?
-            let mut ground = true;
+            let mut internal = true;
             for check_y in 0..3 {
                 for check_x in 0..3 {
                     if seen[y * 3 + check_y][x * 3 + check_x] {
-                        ground = false;
+                        internal = false;
                     }
                 }
             }
-            if ground {
+            if internal {
                 count += 1;
             }
         }
