@@ -252,16 +252,24 @@ pub fn part_two(input: &str) -> Option<u32> {
 
         seen[y][x] = true;
         if x > 0 {
-            to_visit.push_back((x - 1, y));
+            if !seen[y][x - 1] {
+                to_visit.push_back((x - 1, y));
+            }
         }
         if x < SIZE - 1 {
-            to_visit.push_back((x + 1, y));
+            if !seen[y][x + 1] {
+                to_visit.push_back((x + 1, y));
+            }
         }
         if y > 0 {
-            to_visit.push_back((x, y - 1));
+            if !seen[y - 1][x] {
+                to_visit.push_back((x, y - 1));
+            }
         }
         if y < SIZE - 1 {
-            to_visit.push_back((x, y + 1));
+            if !seen[y + 1][x] {
+                to_visit.push_back((x, y + 1));
+            }
         }
     }
 
