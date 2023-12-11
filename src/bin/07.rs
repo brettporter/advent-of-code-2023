@@ -119,7 +119,7 @@ fn calculate_result(input: &str, with_joker: bool) -> usize {
         .trim()
         .split('\n')
         .map(|line| line.split_ascii_whitespace().collect_vec())
-        .sorted_by_key(|v| {
+        .sorted_by_cached_key(|v| {
             let hand = v[0];
             if with_joker {
                 Hand::new(hand.replace('J', "j").as_str())
