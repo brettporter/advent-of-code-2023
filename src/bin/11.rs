@@ -16,6 +16,8 @@ impl Point {
 }
 
 fn calculate_distance(start: &Point, end: &Point) -> isize {
+    // The distance between two points will be the total number of horizontal steps
+    // plus the total number of vertical steps
     (end.x - start.x).abs() + (end.y - start.y).abs()
 }
 
@@ -25,6 +27,7 @@ fn parse_map(input: &str) -> Vec<Point> {
     ));
     let v = p.parse(input).unwrap();
 
+    // Create a sparse map of galaxies
     let mut result = Vec::new();
     for (y, row) in v.iter().enumerate() {
         for (x, c) in row.iter().enumerate() {
@@ -43,9 +46,13 @@ fn expand_map(input: &Vec<Point>, expansion_rate: isize) -> Vec<Point> {
     let w = cols.iter().max().unwrap() + 1;
     let h = rows.iter().max().unwrap() + 1;
 
+    // Find all the columns and rows that are not in the data set as these will expand
     let expand_cols = (0..w).filter(|col| !cols.contains(col)).collect_vec();
     let expand_rows = (0..h).filter(|row| !rows.contains(row)).collect_vec();
 
+    // Replace each galaxy's coordinates to account for expansion
+    // To do this, find the number of expanding columns and rows prior to the current coordinate
+    // and replace it by the expansion rate for each one i.e. (expansion_rate-1)*count
     input
         .iter()
         .map(|p| {
@@ -60,6 +67,8 @@ fn expand_map(input: &Vec<Point>, expansion_rate: isize) -> Vec<Point> {
 }
 
 fn calculate_total_distance(map: Vec<Point>) -> Option<isize> {
+    // Get all of the pairs of entries in the map, calculate the distance between them,
+    // then sum the result
     Some(
         map.into_iter()
             .combinations(2)
