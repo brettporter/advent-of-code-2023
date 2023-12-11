@@ -5,17 +5,17 @@ advent_of_code::solution!(11);
 
 #[derive(Debug, PartialEq, Clone)]
 struct Point {
-    x: i32,
-    y: i32,
+    x: isize,
+    y: isize,
 }
 
 impl Point {
-    fn new(x: i32, y: i32) -> Self {
+    fn new(x: isize, y: isize) -> Self {
         Self { x, y }
     }
 }
 
-fn calculate_distance(start: &Point, end: &Point) -> i32 {
+fn calculate_distance(start: &Point, end: &Point) -> isize {
     (end.x - start.x).abs() + (end.y - start.y).abs()
 }
 
@@ -29,14 +29,14 @@ fn parse_map(input: &str) -> Vec<Point> {
     for (y, row) in v.iter().enumerate() {
         for (x, c) in row.iter().enumerate() {
             if *c == 1 {
-                result.push(Point::new(x as i32, y as i32));
+                result.push(Point::new(x as isize, y as isize));
             }
         }
     }
     result
 }
 
-fn expand_map(input: &Vec<Point>) -> Vec<Point> {
+fn expand_map(input: &Vec<Point>, expansion_rate: isize) -> Vec<Point> {
     let cols = input.iter().map(|p| p.x).collect_vec();
     let rows = input.iter().map(|p| p.y).collect_vec();
 
@@ -50,15 +50,16 @@ fn expand_map(input: &Vec<Point>) -> Vec<Point> {
         .iter()
         .map(|p| {
             Point::new(
-                p.x + expand_cols.iter().filter(|col| **col < p.x).count() as i32,
-                p.y + expand_rows.iter().filter(|row| **row < p.y).count() as i32,
+                p.x + expand_cols.iter().filter(|col| **col < p.x).count() as isize
+                    * (expansion_rate - 1),
+                p.y + expand_rows.iter().filter(|row| **row < p.y).count() as isize
+                    * (expansion_rate - 1),
             )
         })
         .collect_vec()
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
-    let map = expand_map(&parse_map(input));
+fn calculate_total_distance(map: Vec<Point>) -> Option<isize> {
     Some(
         map.into_iter()
             .combinations(2)
@@ -67,8 +68,14 @@ pub fn part_one(input: &str) -> Option<i32> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_one(input: &str) -> Option<isize> {
+    let map = expand_map(&parse_map(input), 2);
+    calculate_total_distance(map)
+}
+
+pub fn part_two(input: &str) -> Option<isize> {
+    let map = expand_map(&parse_map(input), 1000000);
+    calculate_total_distance(map)
 }
 
 #[cfg(test)]
@@ -117,7 +124,7 @@ mod tests {
             "examples", DAY, 1,
         ));
 
-        assert_eq!(expand_map(&original_map), expected_map);
+        assert_eq!(expand_map(&original_map, 2), expected_map);
     }
 
     #[test]
@@ -128,7 +135,11 @@ mod tests {
 
     #[test]
     fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        let map = parse_map(&advent_of_code::template::read_file("examples", DAY));
+        let result = calculate_total_distance(expand_map(&map, 10));
+        assert_eq!(result, Some(1030));
+
+        let result = calculate_total_distance(expand_map(&map, 100));
+        assert_eq!(result, Some(8410));
     }
 }
