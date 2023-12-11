@@ -3,7 +3,7 @@ use itertools::Itertools;
 
 advent_of_code::solution!(11);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 struct Point {
     x: isize,
     y: isize,
@@ -69,12 +69,13 @@ fn expand_map(input: &Vec<Point>, expansion_rate: isize) -> Vec<Point> {
 fn calculate_total_distance(map: Vec<Point>) -> Option<isize> {
     // Get all of the pairs of entries in the map, calculate the distance between them,
     // then sum the result
-    Some(
-        map.into_iter()
-            .combinations(2)
-            .map(|v| calculate_distance(&v[0], &v[1]))
-            .sum(),
-    )
+    let mut total = 0;
+    for (i, el1) in map.iter().enumerate() {
+        for el2 in &map[i + 1..] {
+            total += calculate_distance(&el1, &el2);
+        }
+    }
+    Some(total)
 }
 
 pub fn part_one(input: &str) -> Option<isize> {
