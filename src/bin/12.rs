@@ -8,7 +8,7 @@ fn find_arrangements(str: &str, sizes: &[i32]) -> i32 {
     let missing = str.len() as i32 - sizes.iter().sum::<i32>();
     let to_allocate = missing - (sizes.len() as i32 - 1);
     let first = 0;
-    let last = sizes.len();
+    let last = sizes.len();    
 
     let mut combos = Vec::new();
     for i in 0..=to_allocate {
@@ -33,11 +33,12 @@ fn find_arrangements(str: &str, sizes: &[i32]) -> i32 {
         combos = new_combos;
     }
 
-    println!("combos = {:?}", combos);
+    // TODO: need to build the combos faster, too slow. Maybe check as we go?
+    println!("combos = {:?}", combos.len());
 
     let chr = str.as_bytes();
     let mut arrangements = 0;
-    for c in combos {
+    'outer: for c in combos {
         let mut pos = 0;
         let mut valid = true;
         assert_eq!(c.len(), sizes.len() + 1);
@@ -47,12 +48,14 @@ fn find_arrangements(str: &str, sizes: &[i32]) -> i32 {
             for j in 0..expected {
                 if chr[pos] != b'.' && chr[pos] != b'?' {
                     valid = false;
+                    continue 'outer;
                 }
                 pos += 1;
             }
             for j in 0..sizes[i] {
                 if chr[pos] != b'#' && chr[pos] != b'?' {
                     valid = false;
+                    continue 'outer;
                 }
                 pos += 1;
             }
@@ -60,6 +63,7 @@ fn find_arrangements(str: &str, sizes: &[i32]) -> i32 {
         for i in 0..*c.last().unwrap() {
             if chr[pos] != b'.' && chr[pos] != b'?' {
                 valid = false;
+                continue 'outer;
             }
             pos += 1;
         }
@@ -101,8 +105,35 @@ pub fn part_one(input: &str) -> Option<i32> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<i32> {
+    let p = parser!(lines(
+        // char_of(".#?")+ string(" ") repeat_sep(i32, ",")
+        string(any_char+) string(" ") repeat_sep(i32, ",")
+    ));
+
+    let v = p.parse(input).unwrap();
+
+    Some(
+        v.iter()
+            .map(|line| {
+                let mut s = String::new();
+                let mut info = Vec::new();
+
+                for i in 0..5 {
+                    s += &line.0;
+                    for e in &line.2 {
+                        info.push(*e);
+                    }
+                    if i < 4 {
+                        s += "?";
+                    }
+                }
+
+                println!("Checking {} {:?}", s, info);
+                find_arrangements(s.as_str(), &info)
+            })
+            .sum(),
+    )
 }
 
 #[cfg(test)]
@@ -125,6 +156,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(525152));
     }
 }
