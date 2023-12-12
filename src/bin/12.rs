@@ -1,14 +1,19 @@
-use std::cmp::min;
+use std::{cmp::min, collections::HashMap};
 
 use aoc_parse::{parser, prelude::*};
 
 advent_of_code::solution!(12);
 
-fn find_arrangements(str: &str, sizes: &[i32]) -> i32 {
-    find_arrangements_internal(str, sizes, 0)
+fn find_arrangements(str: &str, sizes: &[i32]) -> i64 {
+    find_arrangements_internal(str, sizes, 0, &mut HashMap::new())
 }
 
-fn find_arrangements_internal(str: &str, sizes: &[i32], min_space: usize) -> i32 {
+fn find_arrangements_internal(
+    str: &str,
+    sizes: &[i32],
+    min_space: usize,
+    memo: &mut HashMap<(usize, usize), i64>,
+) -> i64 {
     if sizes.len() == 0 {
         let b = str.as_bytes();
         if b[..].iter().all(|c| *c == b'.' || *c == b'?') {
@@ -16,6 +21,11 @@ fn find_arrangements_internal(str: &str, sizes: &[i32], min_space: usize) -> i32
         } else {
             return 0;
         }
+    }
+
+    let memo_key = (str.len(), sizes.len());
+    if let Some(result) = memo.get(&memo_key) {
+        return *result;
     }
 
     let min_required = sizes.iter().sum::<i32>() + sizes.len() as i32 - 1;
@@ -30,14 +40,16 @@ fn find_arrangements_internal(str: &str, sizes: &[i32], min_space: usize) -> i32
         if b[0..i].iter().all(|c| *c == b'.' || *c == b'?')
             && b[i..i + expected].iter().all(|c| *c == b'#' || *c == b'?')
         {
-            arrangements += find_arrangements_internal(&str[i + expected..], &sizes[1..], 1);
+            arrangements += find_arrangements_internal(&str[i + expected..], &sizes[1..], 1, memo);
         }
     }
+
+    memo.insert(memo_key, arrangements);
 
     arrangements
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
+pub fn part_one(input: &str) -> Option<i64> {
     let p = parser!(lines(
         // char_of(".#?")+ string(" ") repeat_sep(i32, ",")
         string(any_char+) string(" ") repeat_sep(i32, ",")
@@ -52,7 +64,7 @@ pub fn part_one(input: &str) -> Option<i32> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
+pub fn part_two(input: &str) -> Option<i64> {
     let p = parser!(lines(
         // char_of(".#?")+ string(" ") repeat_sep(i32, ",")
         string(any_char+) string(" ") repeat_sep(i32, ",")
