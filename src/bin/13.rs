@@ -5,100 +5,72 @@ use aoc_parse::{parser, prelude::*};
 advent_of_code::solution!(13);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let p = parser!(sections(
-        lines(char_of(".#")+)
-    ));
-    let v = p.parse(input).unwrap();
-
-    let mut total = 0;
-    for section in v {
-        // horizontal
-        for idx in 0..section.len() - 1 {
-            let num = min(idx + 1, section.len() - idx - 1);
-            let mut same = true;
-            for i in 0..num {
-                if section[idx - i] != section[idx + (i + 1)] {
-                    same = false;
-                    break;
-                }
-            }
-            if same {
-                total += (idx + 1) * 100;
-                break; // TODO: skip vertical
-            }
-        }
-
-        // vertical
-        // TODO: refactor
-        for idx in 0..section[0].len() - 1 {
-            let num = min(idx + 1, section[0].len() - idx - 1);
-            let mut same = true;
-            for i in 0..num {
-                if !section.iter().all(|row| row[idx - i] == row[idx + (i + 1)]) {
-                    same = false;
-                    break;
-                }
-            }
-            if same {
-                total += idx + 1;
-                break;
-            }
-        }
-    }
-
-    Some(total as u32)
+    Some(process(input, 0))
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
+    Some(process(input, 1))
+}
+
+fn process(input: &str, error_target: usize) -> u32 {
     let p = parser!(sections(
         lines(char_of(".#")+)
     ));
     let v = p.parse(input).unwrap();
 
     let mut total = 0;
-    for section in v {
-        println!("Check section");
+    'outer: for section in v {
         // horizontal
-        for idx in 0..section.len() - 1 {
-            let num = min(idx + 1, section.len() - idx - 1);
+        let h = section.len();
+        // Go through every row and check if mirroring at that row works with an exact number of errors
+        for row_idx in 0..h - 1 {
+            // Find the shortest side of the mirror
+            let num = min(row_idx + 1, h - row_idx - 1);
             let mut errors = 0;
+            // Go through every pair of rows starting at the origin
             for i in 0..num {
-                let (line1, line2) = (&section[idx - i], &section[idx + (i + 1)]);
+                // Count the number of mismatches in these two rows
+                let (line1, line2) = (&section[row_idx - i], &section[row_idx + (i + 1)]);
                 errors += (0..line1.len()).filter(|j| line1[*j] != line2[*j]).count();
-                if errors > 1 {
+                // If we haven't exceeded the number of errors, keep going
+                if errors > error_target {
                     break;
                 }
             }
-            if errors == 1 {
-                println!("Horizontal {}", idx + 1);
-                total += (idx + 1) * 100;
-                break; // TODO: skip vertical
+            // Make sure we found the right number of smudges
+            if errors == error_target {
+                total += (row_idx + 1) * 100;
+                continue 'outer;
             }
         }
 
         // vertical
-        // TODO: refactor
-        for idx in 0..section[0].len() - 1 {
-            let num = min(idx + 1, section[0].len() - idx - 1);
+        let w = section[0].len();
+        // Go through every column and check if mirroring at that column works with an exact number of errors
+        for col_idx in 0..w - 1 {
+            // Find the shortest side of the mirror
+            let num = min(col_idx + 1, w - col_idx - 1);
             let mut errors = 0;
+            // Go through every pair of columns starting at the origin
             for i in 0..num {
+                // Count the number of mismatches in these two columns
                 errors += section
                     .iter()
-                    .filter(|row| row[idx - i] != row[idx + (i + 1)])
+                    .filter(|row| row[col_idx - i] != row[col_idx + (i + 1)])
                     .count();
-                if errors > 1 {
+                // If we haven't exceeded the number of errors, keep going
+                if errors > error_target {
                     break;
                 }
             }
-            if errors == 1 {
-                println!("Vertical {}", idx + 1);
-                total += idx + 1;
+            // Make sure we found the right number of smudges
+            if errors == error_target {
+                total += col_idx + 1;
                 break;
             }
         }
     }
-
-    Some(total as u32)
+    total as u32
 }
 
 #[cfg(test)]
