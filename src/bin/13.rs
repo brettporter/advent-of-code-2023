@@ -1,4 +1,3 @@
-use aoc_parse::{parser, prelude::*};
 use itertools::Itertools;
 
 advent_of_code::solution!(13);
@@ -75,10 +74,27 @@ fn check_lines(line1: usize, line2: usize, error_target: usize) -> usize {
 }
 
 fn process(input: &str, error_target: usize) -> u32 {
-    let p = parser!(sections(
-        lines(char_of(".#")+)
-    ));
-    let v = p.parse(input).unwrap();
+    let mut v = Vec::new();
+
+    let mut current_section = Vec::new();
+    for line in input.split("\n") {
+        if line == "" {
+            v.push(current_section);
+            current_section = Vec::new();
+        } else {
+            current_section.push(
+                line.as_bytes()
+                    .iter()
+                    .map(|c| if *c == b'#' { 1usize } else { 0usize })
+                    .collect_vec(),
+            );
+        }
+    }
+
+    // let p = parser!(sections(
+    //     lines(char_of(".#")+)
+    // ));
+    // let v = p.parse(input).unwrap();
 
     let mut total = 0;
 
