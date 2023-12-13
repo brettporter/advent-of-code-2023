@@ -1,35 +1,77 @@
-use std::cmp::min;
-
 use aoc_parse::{parser, prelude::*};
 use itertools::Itertools;
 
 advent_of_code::solution!(13);
 
 fn find_mirror(section: Vec<usize>, error_target: usize) -> Option<u32> {
-    let h = section.len();
-    // Go through every row and check if mirroring at that row works with an exact number of errors
-    for row_idx in 0..h - 1 {
-        // Find the shortest side of the mirror
-        let num = min(row_idx + 1, h - row_idx - 1);
-        let mut errors = 0;
-        // Go through every pair of rows starting at the origin
-        'outer: for i in 0..num {
-            // Count the number of mismatches in these two rows
-            let mut diff = section[row_idx - i] ^ (section[row_idx + (i + 1)]);
-            while diff > 0 {
-                diff &= diff - 1;
-                errors += 1;
-                if errors > error_target {
-                    break 'outer;
-                }
+    // The right mirror will be bounded by either the start or the end, find valid boundaries for
+    // each of these
+    let first = section[0];
+    for i in (1..section.len()).step_by(2) {
+        if check_lines(first, section[i], error_target) <= error_target {
+            // For this valid boundary, check that the range between them is correct
+            // and return the number of elements to the left of the mirror
+            if let Some(value) = check_range(0, i, &section, error_target) {
+                // Found a mirror with correct smudge level
+                return Some(value as u32);
             }
         }
-        // Make sure we found the right number of smudges
-        if errors == error_target {
-            return Some(row_idx as u32 + 1);
+    }
+    // Repeat for last
+    let last = section[section.len() - 1];
+    for i in (0..section.len() - 1).rev().step_by(2) {
+        if check_lines(last, section[i], error_target) <= error_target {
+            if let Some(value) = check_range(i, section.len() - 1, &section, error_target) {
+                return Some(value as u32);
+            }
         }
     }
+    // No mirror found
     None
+}
+
+fn check_range(
+    start: usize,
+    end: usize,
+    section: &Vec<usize>,
+    error_target: usize,
+) -> Option<usize> {
+    // Check all rows of start to end (inclusive) to ensure they are mirrored
+
+    let mut errors = 0;
+    let middle = (end - (start + 1)) / 2;
+    for i in 0..=middle {
+        // Capture the number of errors for this pair of lines
+        errors += check_lines(section[start + i], section[end - i], error_target);
+        // If there are too many errors, this is not a valid mirror
+        if errors > error_target {
+            return None;
+        }
+    }
+    // Check exactly the right number of smudges
+    if errors == error_target {
+        // Return the number of lines to the left, which is the midpoint of the range
+        Some(middle + start + 1)
+    } else {
+        None
+    }
+}
+
+fn check_lines(line1: usize, line2: usize, error_target: usize) -> usize {
+    // xor will tell us how many bits are different
+    let mut diff = line1 ^ line2;
+    let mut errors = 0;
+    // Find the count of different bits. Each iteration eliminates the topmost
+    // bit
+    while diff > 0 {
+        diff &= diff - 1;
+        errors += 1;
+        if errors > error_target {
+            // If there are too many errors on this line, fail fast
+            break;
+        }
+    }
+    errors
 }
 
 fn process(input: &str, error_target: usize) -> u32 {
@@ -41,7 +83,9 @@ fn process(input: &str, error_target: usize) -> u32 {
     let mut total = 0;
 
     for section in v {
-        // Create horizontal rows as a bitmap
+        // Create horizontal rows as a bitmap (limits the number of rows to 64)
+        // Each row will be represented as a single usize and we can use bitwise
+        // operations to check for differences
         let horizontal = section
             .iter()
             .map(|row| {
@@ -53,7 +97,12 @@ fn process(input: &str, error_target: usize) -> u32 {
             })
             .collect_vec();
 
-        // Create vertical rows as a bitmap (transposed)
+        if let Some(result) = find_mirror(horizontal, error_target) {
+            total += result * 100;
+            continue;
+        }
+
+        // Create vertical rows as a bitmap (transposed so we can use same find algorithm)
         let vertical = (0..section[0].len())
             .map(|col| {
                 let mut value = 0;
@@ -66,10 +115,6 @@ fn process(input: &str, error_target: usize) -> u32 {
 
         if let Some(result) = find_mirror(vertical, error_target) {
             total += result;
-        } else {
-            if let Some(result) = find_mirror(horizontal, error_target) {
-                total += result * 100;
-            }
         }
     }
     total as u32
