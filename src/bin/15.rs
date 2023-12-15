@@ -31,13 +31,10 @@ pub fn part_two(input: &str) -> Option<u32> {
             }
             '=' => {
                 let focal_length = rest[..].parse::<u8>().unwrap();
-                if !boxes[b].contains_key(label) {
-                    // add to end of that list, based on it being a linked hash map
-                    boxes[b].insert(label, focal_length);
-                } else {
-                    // replace with the correct focal length but don't change order
-                    boxes[b][label] = focal_length;
-                }
+                boxes[b]
+                    .entry(label)
+                    .and_modify(|v| *v = focal_length)
+                    .or_insert(focal_length);
             }
             _ => panic!("Invalid character {}", s),
         }
