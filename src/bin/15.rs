@@ -22,18 +22,21 @@ pub fn part_two(input: &str) -> Option<u32> {
     for s in input.trim().split(',') {
         let v: Vec<&str> = s.split(&['-', '=']).collect();
         let (label, rest) = (v[0], v[1]);
-        let b = hash_string(label);
+        let b = hash_string(label) as usize;
 
+        // get the operation after the label
         match s.chars().nth(label.len()).unwrap() {
             '-' => {
-                boxes[b as usize].remove(label);
+                boxes[b].remove(label);
             }
             '=' => {
                 let focal_length = rest[..].parse::<u8>().unwrap();
-                if !boxes[b as usize].contains_key(label) {
-                    boxes[b as usize].insert(label, focal_length);
+                if !boxes[b].contains_key(label) {
+                    // add to end of that list, based on it being a linked hash map
+                    boxes[b].insert(label, focal_length);
                 } else {
-                    boxes[b as usize][label] = focal_length;
+                    // replace with the correct focal length but don't change order
+                    boxes[b][label] = focal_length;
                 }
             }
             _ => panic!("Invalid character {}", s),
@@ -42,8 +45,8 @@ pub fn part_two(input: &str) -> Option<u32> {
 
     let mut total = 0;
     for (box_num, b) in boxes.iter().enumerate() {
-        for (pos, (_, value)) in b.iter().enumerate() {
-            let focusing_power = (1 + box_num) * (pos + 1) * *value as usize;
+        for (pos, (_, &value)) in b.iter().enumerate() {
+            let focusing_power = (1 + box_num) * (pos + 1) * value as usize;
             total += focusing_power;
         }
     }
