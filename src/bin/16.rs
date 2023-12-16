@@ -2,25 +2,20 @@ use aoc_parse::{parser, prelude::*};
 
 advent_of_code::solution!(16);
 
-#[derive(Debug)]
 struct Beam {
     x: i32,
     y: i32,
-    direction: i32, // TODO enum
-    done: bool,
+    direction: i32,
 }
 
 impl Beam {
-    fn move_beam(&mut self, w: i32, h: i32) {
+    fn move_beam(&mut self) {
         match self.direction {
             UP => self.y -= 1,
             RIGHT => self.x += 1,
             DOWN => self.y += 1,
             LEFT => self.x -= 1,
             _ => panic!("Invalid direction {}", self.direction),
-        }
-        if self.x < 0 || self.y < 0 || self.x >= w || self.y >= h {
-            self.done = true;
         }
     }
 }
@@ -47,37 +42,43 @@ fn count_energised_tiles(grid: &Vec<Vec<usize>>, beam: Beam) -> u32 {
     let mut light_grid = [[0; 120]; 120];
 
     let (w, h) = (grid[0].len() as i32, grid.len() as i32);
-    let mut beams = vec![beam];
 
+    // Start with one beam, and add more if we split. Process each beam until it is done
+    let mut beams = vec![beam];
     while let Some(mut beam) = beams.pop() {
         loop {
-            if beam.done {
+            // If we have exceeded the boundary, mark this beam as done
+            if beam.x < 0 || beam.y < 0 || beam.x >= w || beam.y >= h {
                 break;
             }
 
+            // If we have encountered this grid square with the same source direction,
+            // mark this beam as done
             let mask = 1 << beam.direction;
             if light_grid[beam.y as usize][beam.x as usize] & mask != 0 {
                 break;
             }
 
+            // Mark the grid as lit for a given source direction
             light_grid[beam.y as usize][beam.x as usize] |= mask;
 
             match grid[beam.y as usize][beam.x as usize] {
                 EMPTY => {
-                    // move
+                    // nothing to do - will move the light beam forward
                 }
                 V_SPLIT => {
                     match beam.direction {
                         UP | DOWN => {
-                            // treat as empty
+                            // treat as empty - will move the light beam forward
                         }
                         LEFT | RIGHT => {
+                            // split the beam, this one continues up, and create a new one going down
                             beam.direction = UP;
                             let mut new_beam = Beam {
                                 direction: DOWN,
                                 ..beam
                             };
-                            new_beam.move_beam(w, h);
+                            new_beam.move_beam();
                             beams.push(new_beam);
                         }
                         _ => panic!("invalid direction"),
@@ -86,21 +87,23 @@ fn count_energised_tiles(grid: &Vec<Vec<usize>>, beam: Beam) -> u32 {
                 H_SPLIT => {
                     match beam.direction {
                         LEFT | RIGHT => {
-                            // treat as empty
+                            // treat as empty - will move the light beam forward
                         }
                         UP | DOWN => {
+                            // split the beam, this one continues left, and create a new one going right
                             beam.direction = LEFT;
                             let mut new_beam = Beam {
                                 direction: RIGHT,
                                 ..beam
                             };
-                            new_beam.move_beam(w, h);
+                            new_beam.move_beam();
                             beams.push(new_beam);
                         }
                         _ => panic!("invalid direction"),
                     }
                 }
                 MIRROR_BACK => {
+                    // change direction of this beam based on the mirror \
                     beam.direction = match beam.direction {
                         RIGHT => DOWN,
                         DOWN => RIGHT,
@@ -110,6 +113,7 @@ fn count_energised_tiles(grid: &Vec<Vec<usize>>, beam: Beam) -> u32 {
                     }
                 }
                 MIRROR_FWD => {
+                    // change direction of this beam based on the mirror /
                     beam.direction = match beam.direction {
                         RIGHT => UP,
                         DOWN => LEFT,
@@ -119,14 +123,16 @@ fn count_energised_tiles(grid: &Vec<Vec<usize>>, beam: Beam) -> u32 {
                     }
                 }
                 _ => panic!(
-                    "Invalid character {}",
+                    "Invalid grid character {}",
                     grid[beam.y as usize][beam.x as usize]
                 ),
             };
-            beam.move_beam(w, h);
+            // Move this beam forward and continue
+            beam.move_beam();
         }
     }
 
+    // Count all the grid squares that were lit
     light_grid
         .iter()
         .map(|row| row.iter().filter(|c| **c > 0).count())
@@ -140,7 +146,6 @@ pub fn part_one(input: &str) -> Option<u32> {
         x: 0,
         y: 0,
         direction: RIGHT,
-        done: false,
     };
 
     Some(count_energised_tiles(&grid, beam))
@@ -153,13 +158,13 @@ pub fn part_two(input: &str) -> Option<u32> {
     let h = grid.len() as i32;
     let mut max = 0;
 
+    // Try each source point and keep track of the max amount of squares lit
     for y in 0..h {
         // left edge
         let beam = Beam {
             x: 0,
             y,
             direction: RIGHT,
-            done: false,
         };
 
         max = max.max(count_energised_tiles(&grid, beam));
@@ -169,7 +174,6 @@ pub fn part_two(input: &str) -> Option<u32> {
             x: w - 1,
             y,
             direction: LEFT,
-            done: false,
         };
 
         max = max.max(count_energised_tiles(&grid, beam));
@@ -181,7 +185,6 @@ pub fn part_two(input: &str) -> Option<u32> {
             x,
             y: 0,
             direction: DOWN,
-            done: false,
         };
 
         max = max.max(count_energised_tiles(&grid, beam));
@@ -191,7 +194,6 @@ pub fn part_two(input: &str) -> Option<u32> {
             x,
             y: h - 1,
             direction: UP,
-            done: false,
         };
 
         max = max.max(count_energised_tiles(&grid, beam));
