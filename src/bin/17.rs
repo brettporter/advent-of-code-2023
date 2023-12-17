@@ -35,6 +35,7 @@ impl Position {
     fn get_next(
         &self,
         direction: Direction,
+        min_span: i32,
         max_span: i32,
         grid: &Vec<Vec<usize>>,
     ) -> Vec<(Position, usize)> {
@@ -66,12 +67,16 @@ impl Position {
                 Direction::NONE => panic!("Invalid direction for next"),
             };
 
-            if new_pos.x >= 0
-                && new_pos.x < grid[0].len() as i32
-                && new_pos.y >= 0
-                && new_pos.y < grid.len() as i32
+            if new_pos.x < 0
+                || new_pos.x >= grid[0].len() as i32
+                || new_pos.y < 0
+                || new_pos.y >= grid.len() as i32
             {
-                cost += grid[new_pos.y as usize][new_pos.x as usize];
+                break;
+            }
+
+            cost += grid[new_pos.y as usize][new_pos.x as usize];
+            if i >= min_span {
                 result.push((new_pos, cost));
             }
         }
@@ -85,7 +90,7 @@ fn build_weighted_grid(input: &str) -> Vec<Vec<usize>> {
     p.parse(input).unwrap()
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn calculate_heat_loss(input: &str, min_span: i32, max_span: i32) -> Option<u32> {
     let grid = build_weighted_grid(input.trim());
 
     let mut queue = DoublePriorityQueue::new();
@@ -122,7 +127,7 @@ pub fn part_one(input: &str) -> Option<u32> {
                 continue;
             }
 
-            for (n, inc_cost) in current.get_next(direction, 3, &grid) {
+            for (n, inc_cost) in current.get_next(direction, min_span, max_span, &grid) {
                 let cost = inc_cost + weight;
                 if cost < *cost_tally.get(&n).unwrap_or(&usize::MAX) {
                     cost_tally.insert(n, cost);
@@ -134,8 +139,12 @@ pub fn part_one(input: &str) -> Option<u32> {
     None
 }
 
+pub fn part_one(input: &str) -> Option<u32> {
+    calculate_heat_loss(input, 1, 3)
+}
+
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    calculate_heat_loss(input, 4, 10)
 }
 
 #[cfg(test)]
@@ -151,6 +160,11 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(94));
+
+        let result = part_two(&advent_of_code::template::read_file_part(
+            "examples", DAY, 2,
+        ));
+        assert_eq!(result, Some(71));
     }
 }
