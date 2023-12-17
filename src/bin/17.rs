@@ -42,6 +42,8 @@ impl Position {
         let mut result = vec![];
         let mut cost = 0;
 
+        // Find all nodes in the specified direction that are within the span range and within
+        // the grid boundaries, calculating the cumulative cost of reaching each of those nodes
         for i in 1..=max_span {
             let new_pos = match direction {
                 Direction::UP => Position {
@@ -67,6 +69,7 @@ impl Position {
                 Direction::NONE => panic!("Invalid direction for next"),
             };
 
+            // At a boundary, stop looking
             if new_pos.x < 0
                 || new_pos.x >= grid[0].len() as i32
                 || new_pos.y < 0
@@ -75,6 +78,7 @@ impl Position {
                 break;
             }
 
+            // Add to the cumulative cost and then add this node if it is in the range
             cost += grid[new_pos.y as usize][new_pos.x as usize];
             if i >= min_span {
                 result.push((new_pos, cost));
@@ -93,26 +97,23 @@ fn build_weighted_grid(input: &str) -> Vec<Vec<usize>> {
 pub fn calculate_heat_loss(input: &str, min_span: i32, max_span: i32) -> Option<u32> {
     let grid = build_weighted_grid(input.trim());
 
-    let mut queue = DoublePriorityQueue::new();
-
     let start = Position {
         x: 0,
         y: 0,
         direction: Direction::NONE,
     };
     let dest = (grid[0].len() as i32 - 1, grid.len() as i32 - 1);
+
+    // Use Dijkstra's algorithm with a priority queue
+    let mut queue = DoublePriorityQueue::new();
     queue.push(start, 0);
 
     let mut cost_tally = HashMap::new();
     cost_tally.insert(start, 0);
 
-    while let Some((current, weight)) = queue.pop_min() {
+    while let Some((current, cost)) = queue.pop_min() {
         if (current.x, current.y) == dest {
-            println!(
-                "Breaking current {} {} is dest {} {} with cost {}",
-                current.x, current.y, dest.0, dest.1, weight
-            );
-            return Some(weight as u32);
+            return Some(cost as u32);
         }
 
         for direction in [
@@ -127,8 +128,12 @@ pub fn calculate_heat_loss(input: &str, min_span: i32, max_span: i32) -> Option<
                 continue;
             }
 
+            // Create nodes for all the possible nodes between min_span and max_span and their cumulative costs
             for (n, inc_cost) in current.get_next(direction, min_span, max_span, &grid) {
-                let cost = inc_cost + weight;
+                let cost = inc_cost + cost;
+
+                // If the cost is lower than previously found (or has not been found), replace it with this node
+                // and add it to the priority queue
                 if cost < *cost_tally.get(&n).unwrap_or(&usize::MAX) {
                     cost_tally.insert(n, cost);
                     queue.push(n, cost);
