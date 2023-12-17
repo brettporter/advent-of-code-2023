@@ -1,7 +1,83 @@
+use std::collections::HashMap;
+
 use aoc_parse::{parser, prelude::*};
 use priority_queue::DoublePriorityQueue;
 
 advent_of_code::solution!(17);
+
+#[derive(Eq, Hash, PartialEq, Copy, Clone)]
+enum Direction {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    NONE,
+}
+impl Direction {
+    fn opposite(&self) -> Direction {
+        match *self {
+            Direction::UP => Direction::DOWN,
+            Direction::DOWN => Direction::UP,
+            Direction::LEFT => Direction::RIGHT,
+            Direction::RIGHT => Direction::LEFT,
+            Direction::NONE => Direction::NONE,
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Copy, Clone)]
+struct Position {
+    x: i32,
+    y: i32,
+    direction: Direction,
+}
+impl Position {
+    fn get_next(
+        &self,
+        direction: Direction,
+        max_span: i32,
+        grid: &Vec<Vec<usize>>,
+    ) -> Vec<(Position, usize)> {
+        let mut result = vec![];
+        let mut cost = 0;
+
+        for i in 1..=max_span {
+            let new_pos = match direction {
+                Direction::UP => Position {
+                    x: self.x,
+                    y: self.y - i,
+                    direction,
+                },
+                Direction::DOWN => Position {
+                    x: self.x,
+                    y: self.y + i,
+                    direction,
+                },
+                Direction::LEFT => Position {
+                    x: self.x - i,
+                    y: self.y,
+                    direction,
+                },
+                Direction::RIGHT => Position {
+                    x: self.x + i,
+                    y: self.y,
+                    direction,
+                },
+                Direction::NONE => panic!("Invalid direction for next"),
+            };
+
+            if new_pos.x >= 0
+                && new_pos.x < grid[0].len() as i32
+                && new_pos.y >= 0
+                && new_pos.y < grid.len() as i32
+            {
+                cost += grid[new_pos.y as usize][new_pos.x as usize];
+                result.push((new_pos, cost));
+            }
+        }
+        result
+    }
+}
 
 fn build_weighted_grid(input: &str) -> Vec<Vec<usize>> {
     let p = parser!(lines(digit+));
@@ -14,108 +90,48 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let mut queue = DoublePriorityQueue::new();
 
-    let w = grid[0].len();
-    let h = grid.len();
-
-    let start = (0, 0);
-    // let dest = (w - 1, h - 1);
-    let dest = (8, 1);
+    let start = Position {
+        x: 0,
+        y: 0,
+        direction: Direction::NONE,
+    };
+    let dest = (grid[0].len() as i32 - 1, grid.len() as i32 - 1);
     queue.push(start, 0);
 
-    let mut cost_tally = vec![vec![usize::MAX; w]; h];
-    let mut came_from = vec![vec![None; w]; h];
-    cost_tally[0][0] = 0;
-
-    fn find_neighbours(current: (usize, usize), w: usize, h: usize) -> Vec<(usize, usize)> {
-        let mut result = Vec::new();
-        if current.0 > 0 {
-            result.push((current.0 - 1, current.1));
-        }
-        if current.0 < w - 1 {
-            result.push((current.0 + 1, current.1));
-        }
-        if current.1 > 0 {
-            result.push((current.0, current.1 - 1));
-        }
-        if current.1 < h - 1 {
-            result.push((current.0, current.1 + 1));
-        }
-        result
-    }
+    let mut cost_tally = HashMap::new();
+    cost_tally.insert(start, 0);
 
     while let Some((current, weight)) = queue.pop_min() {
-        if current == dest {
+        if (current.x, current.y) == dest {
             println!(
-                "Breaking current {} {} is dest {} {} which came from {:?}",
-                current.0, current.1, dest.0, dest.1, came_from[current.1][current.0]
+                "Breaking current {} {} is dest {} {} with cost {}",
+                current.x, current.y, dest.0, dest.1, weight
             );
-            break;
+            return Some(weight as u32);
         }
-        for n in find_neighbours(current, w, h) {
-            let cost = cost_tally[current.1][current.0] + grid[n.1][n.0];
-            println!(
-                "Compare cost: {} {} -> {} {}; cost = {} was {}",
-                current.0, current.1, n.0, n.1, cost, cost_tally[n.1][n.0]
-            );
-            if cost < cost_tally[n.1][n.0] {
-                println!("Improved cost");
-                // test we haven't done 3 consecutive moves in the same direction
-                let mut prev = current;
-                for _ in 0..3 {
-                    if let Some(p) = came_from[prev.1][prev.0] {
-                        prev = p;
-                    }
-                }
 
-                // test horizontal movement
-                if n.1 == prev.1 && n.0.abs_diff(prev.0) > 3 {
-                    println!("Skipping h {} {} -> {} {}", prev.0, prev.1, n.0, n.1);
-                    continue;
-                }
-                // test vertical movement
-                if n.0 == prev.0 && n.1.abs_diff(prev.1) > 3 {
-                    println!("Skipping v {} {} -> {} {}", prev.0, prev.1, n.0, n.1);
-                    continue;
-                }
+        for direction in [
+            Direction::UP,
+            Direction::LEFT,
+            Direction::DOWN,
+            Direction::RIGHT,
+        ] {
+            if direction == current.direction || direction.opposite() == current.direction {
+                // if it's the same direction skip, as we've already created nodes for all valid spaces forward
+                // if it's the opposite direction skip, as we can't go backwards
+                continue;
+            }
 
-                cost_tally[n.1][n.0] = cost;
-                if let Some(y) = queue.get(&n) {
-                    println!("CONTAINS {:?}", y);
+            for (n, inc_cost) in current.get_next(direction, 3, &grid) {
+                let cost = inc_cost + weight;
+                if cost < *cost_tally.get(&n).unwrap_or(&usize::MAX) {
+                    cost_tally.insert(n, cost);
+                    queue.push(n, cost);
                 }
-                let x = queue.push(n, cost);
-                if x.is_some() {
-                    println!("REPLACED {} with {}", x.unwrap(), cost);
-                }
-                println!("n {} {} came from {} {}", n.0, n.1, current.0, current.1);
-                came_from[n.1][n.0] = Some(current);
             }
         }
     }
-
-    let mut heat_loss = 0;
-    let mut current = dest;
-
-    let mut print_path = vec![vec![' '; w]; h];
-    let mut count = -1;
-    while current != start {
-        println!("{} {}", current.0, current.1);
-        count = (count + 1) % 9;
-        // print_path[current.1][current.0] = count + 1;
-        print_path[current.1][current.0] = '.';
-
-        heat_loss += grid[current.1][current.0];
-        current = came_from[current.1][current.0].unwrap();
-    }
-
-    for row in print_path {
-        for col in row {
-            print!("{}", col);
-        }
-        println!();
-    }
-    println!();
-
-    Some(heat_loss as u32)
+    None
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -129,9 +145,7 @@ mod tests {
     #[test]
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        // assert_eq!(result, Some(102));
-        assert_eq!(result, Some(32));
-        todo!();
+        assert_eq!(result, Some(102));
     }
 
     #[test]
