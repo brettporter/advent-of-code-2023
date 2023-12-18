@@ -1,5 +1,5 @@
-use fxhash::FxHashMap;
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(4);
 

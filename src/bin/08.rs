@@ -1,7 +1,7 @@
 use aoc_parse::{parser, prelude::*};
-use fxhash::FxHashMap;
 use itertools::Itertools;
 use num::Integer;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(8);
 

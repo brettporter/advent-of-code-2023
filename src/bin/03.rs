@@ -1,8 +1,8 @@
 use std::cmp::min;
 
-use fxhash::FxHashMap;
 use itertools::Itertools;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(3);
 

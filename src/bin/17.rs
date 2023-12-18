@@ -1,6 +1,6 @@
 use aoc_parse::{parser, prelude::*};
-use fxhash::FxHashMap;
 use priority_queue::DoublePriorityQueue;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(17);
 

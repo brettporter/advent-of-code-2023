@@ -1,8 +1,8 @@
 use std::cmp::min;
 
 use aoc_parse::{parser, prelude::*};
-use fxhash::FxHashMap;
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(12);
 
