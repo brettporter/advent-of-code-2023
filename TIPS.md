@@ -70,6 +70,10 @@ identical mirror locations, it was easiest to track "visited by any beam in the 
 
 ### Watch out for casting (Correctness)
 
+In [Day 8](./src/bin/08.rs), I got caught up when my submission didn't work, even though the algorithm and test was correct. This turned out to be
+that I was casting to `as u32` to return from the solution, as is the default in the template, but the result was larger than that. While add/subtract
+will be checked, casting will not. There now appears to be a warning in template [README](./README.md#common-pitfalls) about this!
+
 ### FxHashMap / FxHashSet (Performance)
 
 `HashMap` provides a secure default hashing algorithm, but it can be quite slow, especially for simple keys including integers as often used in AOC.
