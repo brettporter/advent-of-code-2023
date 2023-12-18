@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-
 use aoc_parse::{parser, prelude::*};
+use fxhash::FxHashMap;
 use itertools::Itertools;
 use num::Integer;
 
 advent_of_code::solution!(8);
 
-fn parse_maps(input: &str) -> (Vec<usize>, HashMap<String, [String; 2]>) {
+fn parse_maps(input: &str) -> (Vec<usize>, FxHashMap<String, [String; 2]>) {
     let p = parser!(
         line(char_of("LR")+)
         line("")
@@ -15,7 +14,7 @@ fn parse_maps(input: &str) -> (Vec<usize>, HashMap<String, [String; 2]>) {
 
     let (instructions, _, maps_definition) = p.parse(input).unwrap();
 
-    let mut maps = HashMap::new();
+    let mut maps = FxHashMap::default();
     for map in maps_definition {
         maps.insert(map.0, [map.1, map.2]);
     }
@@ -27,7 +26,7 @@ fn parse_maps(input: &str) -> (Vec<usize>, HashMap<String, [String; 2]>) {
 fn traverse_map(
     start: &str,
     instructions: &Vec<usize>,
-    maps: &HashMap<String, [String; 2]>,
+    maps: &FxHashMap<String, [String; 2]>,
 ) -> usize {
     // calculate the distance from the start to a destination
     let mut pos = start;

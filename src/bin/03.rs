@@ -1,5 +1,6 @@
-use std::{cmp::min, collections::HashMap};
+use std::cmp::min;
 
+use fxhash::FxHashMap;
 use itertools::Itertools;
 use regex::Regex;
 
@@ -28,7 +29,7 @@ where
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut parts = HashMap::new();
+    let mut parts = FxHashMap::default();
     read_engine_schema(input, |c, _, part_num, part_loc| {
         // if the coordinate is a symbol (in this case, not a . or 0-9), add it to the list of parts
         if c != b'.' && (c < b'0' || c > b'9') {
@@ -41,7 +42,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    let mut gears: HashMap<(usize, usize), Vec<u32>> = HashMap::new();
+    let mut gears: FxHashMap<(usize, usize), Vec<u32>> = FxHashMap::default();
 
     read_engine_schema(input, |c, gear_loc, part_num, _| {
         // if the coordinate is '*', process it as a gear

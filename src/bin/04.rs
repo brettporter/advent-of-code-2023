@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use fxhash::FxHashMap;
 use itertools::Itertools;
 
 advent_of_code::solution!(4);
@@ -58,7 +57,7 @@ pub fn part_two(input: &str) -> Option<u32> {
 
     // Use a map to keep track of the count of each card number
     // (alternatively could use a vector with pre-determined size and index them since it's ordered and not sparse)
-    let mut card_count = HashMap::new();
+    let mut card_count = FxHashMap::default();
 
     for (i, card) in input.trim().split('\n').enumerate() {
         let card_num = i + 1;

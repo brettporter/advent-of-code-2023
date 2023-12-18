@@ -1,6 +1,7 @@
-use std::{cmp::min, collections::HashMap};
+use std::cmp::min;
 
 use aoc_parse::{parser, prelude::*};
+use fxhash::FxHashMap;
 use itertools::Itertools;
 
 advent_of_code::solution!(12);
@@ -10,14 +11,14 @@ const SPRING: usize = 1;
 const WILD: usize = 2;
 
 fn find_arrangements(v: &Vec<usize>, sizes: &[i32]) -> i64 {
-    find_arrangements_internal(v, sizes, 0, &mut HashMap::new())
+    find_arrangements_internal(v, sizes, 0, &mut FxHashMap::default())
 }
 
 fn find_arrangements_internal(
     v: &[usize],
     sizes: &[i32],
     min_space: usize,
-    memo: &mut HashMap<(usize, usize), i64>,
+    memo: &mut FxHashMap<(usize, usize), i64>,
 ) -> i64 {
     // If we have processed all the springs, check the rest of the pattern is empty
     if sizes.len() == 0 {
@@ -121,7 +122,7 @@ mod tests {
                 '.' => EMPTY,
                 '#' => SPRING,
                 '?' => WILD,
-                _ => panic!("Invalid test input {c}")
+                _ => panic!("Invalid test input {c}"),
             })
             .collect_vec()
     }

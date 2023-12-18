@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use aoc_parse::{parser, prelude::*};
+use fxhash::FxHashMap;
 use priority_queue::DoublePriorityQueue;
 
 advent_of_code::solution!(17);
@@ -108,7 +107,7 @@ pub fn calculate_heat_loss(input: &str, min_span: i32, max_span: i32) -> Option<
     let mut queue = DoublePriorityQueue::new();
     queue.push(start, 0);
 
-    let mut cost_tally = HashMap::new();
+    let mut cost_tally = FxHashMap::default();
     cost_tally.insert(start, 0);
 
     while let Some((current, cost)) = queue.pop_min() {
