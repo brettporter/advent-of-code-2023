@@ -21,6 +21,11 @@ value of of the area, add the perimeter to it, divide it by two and add 1 for th
 In both cases, because the edges mapped out whole 1x1 squares, the area encompasses half of the perimeter (as it is taken from the middle
 of each square). This is why half of the perimeter is added to the area, along with one extra for the corners.
 
+Generalised explanations of these properties:
+
+ * [Shoelace formula](https://en.wikipedia.org/wiki/Shoelace_formula)
+ * [Pick's theorem](https://en.wikipedia.org/wiki/Pick's_theorem)
+
 ## Dynamic Programming & Memoization
 
 See [Day 12](./src/bin/12.rs). In this case there was a calculation at the end of the pattern that would always be the same when it
