@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use aoc_parse::{parser, prelude::*};
 use itertools::Itertools;
 use num::FromPrimitive;
@@ -40,11 +38,7 @@ fn find_start(pipes: &Vec<Vec<Pipe>>) -> (usize, usize) {
     panic!("Didn't find start");
 }
 
-fn find_pipe_from_start(
-    pipes: &Vec<Vec<Pipe>>,
-    start_x: usize,
-    start_y: usize,
-) -> (Pipe, Direction) {
+fn find_pipe_from_start(pipes: &Vec<Vec<Pipe>>, start_x: usize, start_y: usize) -> Direction {
     // We're not told what type of pipe the start is, so look at the surrounding pipes
     // to determine what the valid connections are.
 
@@ -79,36 +73,8 @@ fn find_pipe_from_start(
         }
     }
 
-    // Given two directions, find out what the pipe type is
-    let pipe = match directions[0] {
-        Direction::N => match directions[1] {
-            Direction::S => Pipe::NS,
-            Direction::E => Pipe::NE,
-            Direction::W => Pipe::NW,
-            _ => panic!("Invalid pipe"),
-        },
-        Direction::S => match directions[1] {
-            Direction::N => Pipe::NS,
-            Direction::E => Pipe::SE,
-            Direction::W => Pipe::SW,
-            _ => panic!("Invalid pipe"),
-        },
-        Direction::E => match directions[1] {
-            Direction::N => Pipe::NE,
-            Direction::S => Pipe::SE,
-            Direction::W => Pipe::EW,
-            _ => panic!("Invalid pipe"),
-        },
-        Direction::W => match directions[1] {
-            Direction::N => Pipe::NW,
-            Direction::S => Pipe::SW,
-            Direction::E => Pipe::EW,
-            _ => panic!("Invalid pipe"),
-        },
-    };
-
     // Return the pipe type, but also one of the valid directions to use as a starting direction
-    (pipe, directions.first().unwrap().clone())
+    directions.first().unwrap().clone()
 }
 
 fn pipe_direction(direction: &Direction, pipe: &Pipe) -> Direction {
@@ -161,10 +127,7 @@ fn pipe_direction(direction: &Direction, pipe: &Pipe) -> Direction {
     }
 }
 
-fn traverse_map<F>(input: &str, process: &mut F)
-where
-    F: FnMut(usize, usize, &Pipe),
-{
+fn traverse_map(input: &str) -> (i32, usize) {
     let p = parser!(lines(
         line:char_of("|-LJ7F.S")+ => line.into_iter().map(|pipe| -> Pipe { FromPrimitive::from_usize(pipe).unwrap()} ).collect_vec()
     ));
@@ -175,125 +138,48 @@ where
     let (start_x, start_y) = find_start(&pipes);
 
     // Find the type of pipe start is, and an available direction
-    let (start_pipe, mut direction) = find_pipe_from_start(&pipes, start_x, start_y);
-    let mut pipe = &start_pipe;
+    let mut direction = find_pipe_from_start(&pipes, start_x, start_y);
 
     // Navigate the pipe from the starting point until we return
     // to the starting point, calling process closure on each location
-    let (mut x, mut y) = (start_x, start_y);
+    let start_pos = (start_x as isize, start_y as isize);
+    let mut pos = start_pos;
+    let mut perimeter = 0;
+    let mut area = 0;
     loop {
-        process(x, y, &pipe);
-        match &direction {
-            Direction::N => y -= 1,
-            Direction::S => y += 1,
-            Direction::E => x += 1,
-            Direction::W => x -= 1,
-        }
-        if x == start_x && y == start_y {
+        perimeter += 1;
+        let new_pos = match &direction {
+            Direction::N => (pos.0, pos.1 - 1),
+            Direction::S => (pos.0, pos.1 + 1),
+            Direction::E => (pos.0 + 1, pos.1),
+            Direction::W => (pos.0 - 1, pos.1),
+        };
+        if new_pos == start_pos {
             break;
         }
-        pipe = &pipes[y][x];
+        area += (new_pos.0 + pos.0) * (new_pos.1 - pos.1);
+        pos = new_pos;
+
+        let pipe = &pipes[pos.1 as usize][pos.0 as usize];
         direction = pipe_direction(&direction, &pipe);
     }
-}
-
-fn draw_pipe(seen: &mut Vec<Vec<bool>>, x: usize, y: usize, pipe: &Pipe) {
-    // Draw the pipe shape using a 3x3 grid onto the mask "seen"
-    // Using the shape instead of a single block means that
-    // a fill algorithm can pass through two pipes that are right next
-    // to each other, as specified in the pzuzzel
-    let pattern = match pipe {
-        Pipe::NS => [0, 1, 0, 0, 1, 0, 0, 1, 0],
-        Pipe::EW => [0, 0, 0, 1, 1, 1, 0, 0, 0],
-        Pipe::NE => [0, 1, 0, 0, 1, 1, 0, 0, 0],
-        Pipe::NW => [0, 1, 0, 1, 1, 0, 0, 0, 0],
-        Pipe::SW => [0, 0, 0, 1, 1, 0, 0, 1, 0],
-        Pipe::SE => [0, 0, 0, 0, 1, 1, 0, 1, 0],
-        _ => panic!("Can't draw this pipe {:?}", pipe),
-    };
-    for y_off in 0..3 {
-        for x_off in 0..3 {
-            if pattern[y_off * 3 + x_off] == 1 {
-                seen[y * 3 + y_off][x * 3 + x_off] = true;
-            }
-        }
-    }
+    (perimeter, area.abs() as usize / 2)
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let mut count = 0;
-
     // Traverse the main pipe and count the steps
-    traverse_map(input, &mut |_, _, _| count += 1);
+    let (perimeter, _) = traverse_map(input);
 
     // Return half the steps, as this is the furthest point from the start
-    Some(count / 2)
+    Some(perimeter as u32 / 2)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    // Assumption that input is < 150 wide and high
-    // Create a mask that makes each pipe a 3x3 grid that we can flood fill
-    const SIZE: usize = 150 * 3;
-    let mut seen = vec![vec![false; SIZE]; SIZE];
-
-    // Mark the pipe locations as seen
-    traverse_map(input, &mut |x, y, pipe| draw_pipe(&mut seen, x, y, pipe));
-
-    // Fill outside the main pipe loop, which will leave the inner sections unseen
-    // We do the fill by following up, down, left, right, and stopping the fill where we encounter something already seen
-    let mut to_visit = VecDeque::new();
-    // Assumption that this is outside... may need to adjust if not
-    to_visit.push_back((0, 0));
-
-    while let Some((x, y)) = to_visit.pop_back() {
-        if seen[y][x] {
-            continue;
-        }
-
-        seen[y][x] = true;
-        if x > 0 {
-            if !seen[y][x - 1] {
-                to_visit.push_back((x - 1, y));
-            }
-        }
-        if x < SIZE - 1 {
-            if !seen[y][x + 1] {
-                to_visit.push_back((x + 1, y));
-            }
-        }
-        if y > 0 {
-            if !seen[y - 1][x] {
-                to_visit.push_back((x, y - 1));
-            }
-        }
-        if y < SIZE - 1 {
-            if !seen[y + 1][x] {
-                to_visit.push_back((x, y + 1));
-            }
-        }
-    }
-
-    // Count the elements that are not filled. Note that there will be some
-    // pipe squares with unfilled elements, so only count those that are
-    // complete internal squares
-    let mut count = 0;
-    for y in 0..SIZE / 3 {
-        for x in 0..SIZE / 3 {
-            let mut internal = true;
-            for check_y in 0..3 {
-                for check_x in 0..3 {
-                    if seen[y * 3 + check_y][x * 3 + check_x] {
-                        internal = false;
-                    }
-                }
-            }
-            if internal {
-                count += 1;
-            }
-        }
-    }
-
-    Some(count)
+pub fn part_two(input: &str) -> Option<usize> {
+    // Traverse the main pipe and calculate the area and perimeter
+    let (perimeter, area) = traverse_map(input);
+    // The area measures from the middle of each block in the perimeter, so we remove half the perimeter from the
+    // calculated area to get the inside, then add 1 for the 4 outermost corners
+    return Some(area - perimeter as usize / 2 + 1);
 }
 
 #[cfg(test)]
