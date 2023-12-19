@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use aoc_parse::{parser, prelude::*};
+use itertools::Itertools;
+use regex::Regex;
 
 advent_of_code::solution!(19);
 
@@ -22,33 +24,60 @@ fn parse(
     Vec<(usize, usize, usize, usize)>,
     HashMap<String, Vec<WorkflowRule>>,
 ) {
-    let operation = parser!({ "<" => Operation::LT, ">" => Operation::GT});
-    let workflow_rule = parser!(
-        {
-            cat:char_of("xmas") op:operation value:usize ":" workflow:string(alpha+) => WorkflowRule::Rule(cat, op, value, workflow),
-            workflow:string(alpha+) => WorkflowRule::Command(workflow),
-        }
-    );
-
-    let p = parser!(
-        section(
-            lines(
-                workflow:string(alpha+) "{" rules:repeat_sep(workflow_rule, ",") "}"
-            )
-        )
-        section(
-            lines(
-                "{x=" usize ",m=" usize ",a=" usize ",s=" usize "}"
-            )
-        )
-    );
-
-    let (workflows, parts) = p.parse(input).unwrap();
-
     let mut workflow_map = HashMap::new();
-    for (name, rules) in workflows {
-        workflow_map.insert(name, rules);
+
+    let mut li = input.trim().split("\n");
+    while let Some(line) = li.next() {
+        if line.is_empty() {
+            break;
+        }
+        let mut i = line.split(&['{', '}']);
+        let name = i.next().unwrap();
+        let rules = i
+            .next()
+            .unwrap()
+            .split(",")
+            .map(|r| {
+                if r.contains(':') {
+                    let mut i = r.split(":");
+                    let cond = i.next().unwrap();
+                    WorkflowRule::Rule(
+                        match cond.chars().nth(0).unwrap() {
+                            'x' => 0,
+                            'm' => 1,
+                            'a' => 2,
+                            's' => 3,
+                            _ => panic!("Invalid input bucket in {}", cond),
+                        },
+                        match cond.chars().nth(1).unwrap() {
+                            '<' => Operation::LT,
+                            '>' => Operation::GT,
+                            _ => panic!("Invalid input operation"),
+                        },
+                        cond[2..].parse().unwrap(),
+                        i.next().unwrap().to_string(),
+                    )
+                } else {
+                    WorkflowRule::Command(r.to_string())
+                }
+            })
+            .collect();
+        workflow_map.insert(name.to_string(), rules);
     }
+
+    let parts = li
+        .map(|line| {
+            let v = line
+                .split(&['{', '}'])
+                .nth(1)
+                .unwrap()
+                .split(',')
+                .map(|alloc| usize::from_str_radix(alloc.split('=').nth(1).unwrap(), 10).unwrap())
+                .collect_vec();
+            (v[0], v[1], v[2], v[3])
+        })
+        .collect();
+
     (parts, workflow_map)
 }
 
