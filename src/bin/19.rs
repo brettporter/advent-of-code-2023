@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::*,
-    combinator::opt,
+    combinator::{map, opt},
     multi::{many1, separated_list1},
     sequence::{delimited, separated_pair, terminated, tuple},
     IResult,
@@ -49,21 +49,21 @@ fn parse(input: &str) -> (Vec<Vec<usize>>, HashMap<String, Vec<WorkflowRule>>) {
         ))
     }
 
-    fn parse_command(input: &str) -> IResult<&str, WorkflowRule> {
-        let (input, cmd) = alpha1(input)?;
-        Ok((input, WorkflowRule::Command(cmd.to_string())))
-    }
-
     fn parse_workflow(input: &str) -> IResult<&str, (String, Vec<WorkflowRule>)> {
-        let (input, (name, rules)) = tuple((
-            alpha1,
+        tuple((
+            map(alpha1, |s: &str| s.to_string()),
             delimited(
                 tag("{"),
-                separated_list1(tag(","), alt((parse_condition, parse_command))),
+                separated_list1(
+                    tag(","),
+                    alt((
+                        parse_condition,
+                        map(alpha1, |s: &str| WorkflowRule::Command(s.to_string())),
+                    )),
+                ),
                 tag("}"),
             ),
-        ))(input)?;
-        Ok((input, (name.to_string(), rules)))
+        ))(input)
     }
 
     fn parse_parts(input: &str) -> IResult<&str, Vec<usize>> {
