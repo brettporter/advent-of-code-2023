@@ -102,3 +102,21 @@ limitation.
 
 I haven't explored further alternatives on this (e.g. `bitarray` crate), but suspect that continuing to use vectors with pre-allocation and reuse is
 likely to be the fastest solution as these are heavily optimised in compiled Rust.
+
+### Parsing Input (Performance, Productivity)
+
+On [Day 19](./src/bin/19.rs) the parsing was more complex. I had been using the [aoc_parse](https://docs.rs/aoc-parse/latest/aoc_parse/) crate which
+is very succinct, but was looking for something more performant. I ended up using [nom](https://docs.rs/nom/latest/nom/) which is slightly more
+verbose, but still declarative and was faster than my attempts at hand-rolling it for that day.
+
+Also tried [pest](https://pest.rs) which was really easy to describe and test the grammar with PEG, but requires more work to parse the resulting tree than other alternatives.
+
+| Approach & code | Performance (total time for part 1) |
+| :-------------: | :---------: |
+| [aoc_parse](https://github.com/brettporter/advent-of-code-2023/blob/8204b76/src/bin/19.rs#L19) | `~1.5ms` |
+| [hand rolled with split](https://github.com/brettporter/advent-of-code-2023/blob/50ffbc1/src/bin/19.rs#L21) | `~490µs` |
+| [hand rolled with regex](https://github.com/brettporter/advent-of-code-2023/blob/handroll-parsing-19/src/bin/19.rs#L21) | `~1.4ms` |
+| [pest](https://github.com/brettporter/advent-of-code-2023/blob/parsing-pest/src/bin/19.rs#L24) | `~883µs` |
+| [nom](https://github.com/brettporter/advent-of-code-2023/blob/9498faae1b458977928efce6717d2a58e407cb85/src/bin/19.rs#L27) | `~430µs` |
+
+
