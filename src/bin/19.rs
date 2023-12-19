@@ -26,36 +26,29 @@ fn parse(
 ) {
     let mut workflow_map = HashMap::new();
 
-    let mut li = input.trim().split("\n");
-    while let Some(line) = li.next() {
-        if line.is_empty() {
-            break;
-        }
-        let mut i = line.split(&['{', '}']);
-        let name = i.next().unwrap();
-        let rules = i
-            .next()
-            .unwrap()
+    let wf_regex = Regex::new(r"([a-z]+)\{(.*)\}").unwrap();
+    let wf_rule_regex = Regex::new(r"([xmas])([<>])([0-9]+):([a-z]+|A|R)").unwrap();
+    let part_regex = Regex::new(r"\{x=([0-9]+),m=([0-9]+),a=([0-9]+),s=([0-9]+)\}").unwrap();
+
+    for c in wf_regex.captures_iter(input) {
+        let (_, [name, r]) = c.extract();
+        let rules = r
             .split(",")
             .map(|r| {
-                if r.contains(':') {
-                    let mut i = r.split(":");
-                    let cond = i.next().unwrap();
+                if let Some(c) = wf_rule_regex.captures(r) {
+                    let (_, [part, op, value, workflow]) = c.extract();
                     WorkflowRule::Rule(
-                        match cond.chars().nth(0).unwrap() {
-                            'x' => 0,
-                            'm' => 1,
-                            'a' => 2,
-                            's' => 3,
-                            _ => panic!("Invalid input bucket in {}", cond),
-                        },
-                        match cond.chars().nth(1).unwrap() {
-                            '<' => Operation::LT,
-                            '>' => Operation::GT,
+                        "xmas"
+                            .chars()
+                            .position(|c| c == part.chars().nth(0).unwrap())
+                            .unwrap(),
+                        match op {
+                            "<" => Operation::LT,
+                            ">" => Operation::GT,
                             _ => panic!("Invalid input operation"),
                         },
-                        cond[2..].parse().unwrap(),
-                        i.next().unwrap().to_string(),
+                        usize::from_str_radix(value, 10).unwrap(),
+                        workflow.to_string(),
                     )
                 } else {
                     WorkflowRule::Command(r.to_string())
@@ -65,16 +58,16 @@ fn parse(
         workflow_map.insert(name.to_string(), rules);
     }
 
-    let parts = li
-        .map(|line| {
-            let v = line
-                .split(&['{', '}'])
-                .nth(1)
-                .unwrap()
-                .split(',')
-                .map(|alloc| usize::from_str_radix(alloc.split('=').nth(1).unwrap(), 10).unwrap())
-                .collect_vec();
-            (v[0], v[1], v[2], v[3])
+    let parts = part_regex
+        .captures_iter(input)
+        .map(|c| {
+            let (_, [x, m, a, s]) = c.extract();
+            (
+                x.parse().unwrap(),
+                m.parse().unwrap(),
+                a.parse().unwrap(),
+                s.parse().unwrap(),
+            )
         })
         .collect();
 
