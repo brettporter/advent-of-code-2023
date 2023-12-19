@@ -1,0 +1,11 @@
+id         = { ('a'..'z')+ | "A" | "R" }
+operation  = { "<" | ">" }
+number     = { ASCII_DIGIT+ }
+category   = { "x" | "m" | "a" | "s" }
+condition  = { category ~ operation ~ number ~ ":" ~ id }
+rule       = { condition | id }
+rules      = { rule ~ ("," ~ rule)* }
+workflow   = { id ~ "{" ~ rules ~ "}" }
+allocation = { category ~ "=" ~ number }
+bucket     = { "{" ~ allocation ~ ("," ~ allocation)* ~ "}" }
+file       = { (workflow ~ NEWLINE)+ ~ NEWLINE+ ~ (bucket ~ NEWLINE*)+ }

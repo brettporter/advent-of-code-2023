@@ -1,8 +1,13 @@
 use std::collections::HashMap;
 
-use aoc_parse::{parser, prelude::*};
-
 advent_of_code::solution!(19);
+
+use pest::Parser;
+use pest_derive::Parser;
+
+#[derive(Parser)]
+#[grammar = "19.pest"]
+pub struct InputParser;
 
 #[derive(Debug)]
 enum Operation {
@@ -16,39 +21,65 @@ enum WorkflowRule {
     Command(String),
 }
 
-fn parse(
-    input: &str,
-) -> (
-    Vec<(usize, usize, usize, usize)>,
-    HashMap<String, Vec<WorkflowRule>>,
-) {
-    let operation = parser!({ "<" => Operation::LT, ">" => Operation::GT});
-    let workflow_rule = parser!(
-        {
-            cat:char_of("xmas") op:operation value:usize ":" workflow:string(alpha+) => WorkflowRule::Rule(cat, op, value, workflow),
-            workflow:string(alpha+) => WorkflowRule::Command(workflow),
-        }
-    );
-
-    let p = parser!(
-        section(
-            lines(
-                workflow:string(alpha+) "{" rules:repeat_sep(workflow_rule, ",") "}"
-            )
-        )
-        section(
-            lines(
-                "{x=" usize ",m=" usize ",a=" usize ",s=" usize "}"
-            )
-        )
-    );
-
-    let (workflows, parts) = p.parse(input).unwrap();
+fn parse(input: &str) -> (Vec<Vec<usize>>, HashMap<String, Vec<WorkflowRule>>) {
+    let file = InputParser::parse(Rule::file, input)
+        .unwrap()
+        .next()
+        .unwrap();
 
     let mut workflow_map = HashMap::new();
-    for (name, rules) in workflows {
-        workflow_map.insert(name, rules);
+    let mut parts = Vec::new();
+    for r in file.into_inner() {
+        match r.as_rule() {
+            Rule::workflow => {
+                let mut inner = r.into_inner();
+                let id = inner.next().unwrap().as_str();
+                let rules = inner.next().unwrap();
+                let rules = rules
+                    .into_inner()
+                    .map(|rule| {
+                        let rule = rule.into_inner().next().unwrap();
+                        match rule.as_rule() {
+                            Rule::condition => {
+                                let mut i = rule.into_inner();
+                                WorkflowRule::Rule(
+                                    match i.next().unwrap().as_str() {
+                                        "x" => 0,
+                                        "m" => 1,
+                                        "a" => 2,
+                                        "s" => 3,
+                                        _ => panic!(),
+                                    },
+                                    match i.next().unwrap().as_str() {
+                                        "<" => Operation::LT,
+                                        ">" => Operation::GT,
+                                        _ => panic!(),
+                                    },
+                                    usize::from_str_radix(i.next().unwrap().as_str(), 10).unwrap(),
+                                    i.next().unwrap().as_str().to_string(),
+                                )
+                            }
+                            Rule::id => WorkflowRule::Command(rule.as_str().to_string()),
+                            _ => panic!(),
+                        }
+                    })
+                    .collect();
+                workflow_map.insert(id.to_string(), rules);
+            }
+            Rule::bucket => {
+                let v = r
+                    .into_inner()
+                    .map(|alloc| {
+                        usize::from_str_radix(alloc.into_inner().nth(1).unwrap().as_str(), 10)
+                            .unwrap()
+                    })
+                    .collect();
+                parts.push(v);
+            }
+            _ => panic!(),
+        }
     }
+
     (parts, workflow_map)
 }
 
@@ -151,7 +182,6 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(
         parts
             .iter()
-            .map(|part| vec![part.0, part.1, part.2, part.3])
             .filter(|part| execute_workflow(String::from("in"), &workflow_map, &part))
             .map(|part| part.iter().sum::<usize>())
             .sum(),
