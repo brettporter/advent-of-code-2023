@@ -111,8 +111,8 @@ verbose, but still declarative and was faster than my attempts at hand-rolling i
 
 Also tried [pest](https://pest.rs) which was really easy to describe and test the grammar with PEG, but requires more work to parse the resulting tree than other alternatives.
 
-| Approach & code | Performance (total time for part 1) |
-| :-------------: | :---------: |
+| Approach & code | Performance<br>(total time for part 1) |
+| --------------- | :---------: |
 | [aoc_parse](https://github.com/brettporter/advent-of-code-2023/blob/8204b76/src/bin/19.rs#L19) | `~1.5ms` |
 | [hand rolled with split](https://github.com/brettporter/advent-of-code-2023/blob/50ffbc1/src/bin/19.rs#L21) | `~490µs` |
 | [hand rolled with regex](https://github.com/brettporter/advent-of-code-2023/blob/handroll-parsing-19/src/bin/19.rs#L21) | `~1.4ms` |
