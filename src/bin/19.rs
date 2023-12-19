@@ -1,10 +1,18 @@
 use std::collections::HashMap;
 
-use aoc_parse::{parser, prelude::*};
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::*,
+    combinator::opt,
+    multi::{many1, separated_list1},
+    sequence::{delimited, separated_pair, terminated, tuple},
+    IResult,
+};
 
 advent_of_code::solution!(19);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Operation {
     LT,
     GT,
@@ -16,40 +24,67 @@ enum WorkflowRule {
     Command(String),
 }
 
-fn parse(
-    input: &str,
-) -> (
-    Vec<(usize, usize, usize, usize)>,
-    HashMap<String, Vec<WorkflowRule>>,
-) {
-    let operation = parser!({ "<" => Operation::LT, ">" => Operation::GT});
-    let workflow_rule = parser!(
-        {
-            cat:char_of("xmas") op:operation value:usize ":" workflow:string(alpha+) => WorkflowRule::Rule(cat, op, value, workflow),
-            workflow:string(alpha+) => WorkflowRule::Command(workflow),
-        }
-    );
-
-    let p = parser!(
-        section(
-            lines(
-                workflow:string(alpha+) "{" rules:repeat_sep(workflow_rule, ",") "}"
-            )
-        )
-        section(
-            lines(
-                "{x=" usize ",m=" usize ",a=" usize ",s=" usize "}"
-            )
-        )
-    );
-
-    let (workflows, parts) = p.parse(input).unwrap();
-
-    let mut workflow_map = HashMap::new();
-    for (name, rules) in workflows {
-        workflow_map.insert(name, rules);
+fn parse(input: &str) -> (Vec<Vec<usize>>, HashMap<String, Vec<WorkflowRule>>) {
+    fn parse_condition(input: &str) -> IResult<&str, WorkflowRule> {
+        let (input, (category, op, value, _, workflow)) =
+            tuple((one_of("xmas"), one_of("<>"), u32, tag(":"), alpha1))(input)?;
+        Ok((
+            input,
+            WorkflowRule::Rule(
+                match category {
+                    'x' => 0,
+                    'm' => 1,
+                    'a' => 2,
+                    's' => 3,
+                    _ => panic!(),
+                },
+                match op {
+                    '<' => Operation::LT,
+                    '>' => Operation::GT,
+                    _ => panic!(),
+                },
+                value as usize,
+                workflow.to_string(),
+            ),
+        ))
     }
-    (parts, workflow_map)
+
+    fn parse_command(input: &str) -> IResult<&str, WorkflowRule> {
+        let (input, cmd) = alpha1(input)?;
+        Ok((input, WorkflowRule::Command(cmd.to_string())))
+    }
+
+    fn parse_workflow(input: &str) -> IResult<&str, (String, Vec<WorkflowRule>)> {
+        let (input, (name, rules)) = tuple((
+            alpha1,
+            delimited(
+                tag("{"),
+                separated_list1(tag(","), alt((parse_condition, parse_command))),
+                tag("}"),
+            ),
+        ))(input)?;
+        Ok((input, (name.to_string(), rules)))
+    }
+
+    fn parse_parts(input: &str) -> IResult<&str, Vec<usize>> {
+        let (input, parts) = delimited(
+            tag("{"),
+            separated_list1(tag(","), separated_pair(one_of("xmas"), tag("="), u32)),
+            tag("}"),
+        )(input)?;
+        Ok((
+            input,
+            parts.iter().map(|(_, value)| *value as usize).collect(),
+        )) // Currently assuming xmas order
+    }
+
+    let (_, (workflows, _, parts)) = tuple((
+        many1(terminated(parse_workflow, newline)),
+        newline,
+        many1(terminated(parse_parts, opt(newline))),
+    ))(input)
+    .unwrap();
+    (parts, HashMap::from_iter(workflows))
 }
 
 fn execute_workflow(
@@ -151,7 +186,6 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(
         parts
             .iter()
-            .map(|part| vec![part.0, part.1, part.2, part.3])
             .filter(|part| execute_workflow(String::from("in"), &workflow_map, &part))
             .map(|part| part.iter().sum::<usize>())
             .sum(),
