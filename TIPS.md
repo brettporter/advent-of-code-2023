@@ -7,7 +7,7 @@ Here's some reminders from 2023, that might serve you well in 2024.
 
 See [Day 5](./src/bin/05.rs) where we needed to deal with a very large set of numbers being passed through each stage. This would have
 blown out tracking each number, but were able to narrow the solution down by calculating the intersecting intervals on the number line
-at each stage instead.
+at each stage instead. This was again useful in [Day 19](./src/bin/19.rs).
 
 ## Area inside a polygon
 
