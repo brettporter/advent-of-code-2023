@@ -5,42 +5,15 @@ use aoc_parse::{parser, prelude::*};
 advent_of_code::solution!(19);
 
 #[derive(Debug)]
-enum WorkflowRule {
-    Rule(usize, usize, usize, String),
-    Command(String),
+enum Operation {
+    LT,
+    GT,
 }
 
-const LT: usize = 0;
-const GT: usize = 1;
-
-fn execute_workflow(
-    name: String,
-    workflows: &HashMap<String, Vec<WorkflowRule>>,
-    part: &Vec<usize>,
-) -> bool {
-    if name == "R" {
-        return false;
-    }
-    if name == "A" {
-        return true;
-    }
-
-    for rule in workflows.get(&name).unwrap() {
-        match rule {
-            WorkflowRule::Rule(cat, op, value, workflow) => {
-                let eval = match *op {
-                    LT => part[*cat] < *value,
-                    GT => part[*cat] > *value,
-                    _ => unreachable!(),
-                };
-                if eval {
-                    return execute_workflow(workflow.to_owned(), workflows, part);
-                }
-            }
-            WorkflowRule::Command(cmd) => return execute_workflow(cmd.to_owned(), workflows, part),
-        }
-    }
-    unreachable!()
+#[derive(Debug)]
+enum WorkflowRule {
+    Rule(usize, Operation, usize, String),
+    Command(String),
 }
 
 fn parse(
@@ -49,9 +22,10 @@ fn parse(
     Vec<(usize, usize, usize, usize)>,
     HashMap<String, Vec<WorkflowRule>>,
 ) {
+    let operation = parser!({ "<" => Operation::LT, ">" => Operation::GT});
     let workflow_rule = parser!(
         {
-            cat:char_of("xmas") op:char_of("<>") value:usize ":" workflow:string(alpha+) => WorkflowRule::Rule(cat, op, value, workflow),
+            cat:char_of("xmas") op:operation value:usize ":" workflow:string(alpha+) => WorkflowRule::Rule(cat, op, value, workflow),
             workflow:string(alpha+) => WorkflowRule::Command(workflow),
         }
     );
@@ -64,7 +38,7 @@ fn parse(
         )
         section(
             lines(
-                "{x=" usize ",m=" usize ",a=" usize ",s=" usize "}" // Currently assuming all present - can do char_of("xmas") and map later if not
+                "{x=" usize ",m=" usize ",a=" usize ",s=" usize "}"
             )
         )
     );
@@ -78,14 +52,53 @@ fn parse(
     (parts, workflow_map)
 }
 
+fn execute_workflow(
+    name: String,
+    workflows: &HashMap<String, Vec<WorkflowRule>>,
+    part: &Vec<usize>,
+) -> bool {
+    // If the workflow we reached is R - return false (rejected)
+    if name == "R" {
+        return false;
+    }
+    // If the workflow we reached is R - return false (accepted)
+    if name == "A" {
+        return true;
+    }
+
+    // Otherwise, lookup the workflow by name and process the rules in order
+    for rule in workflows.get(&name).unwrap() {
+        match rule {
+            WorkflowRule::Rule(cat, op, value, workflow) => {
+                // Conditional rule - test if the corresponding part category matches the rule
+                // If so, run the given workflow (and do not continue processing rules).
+                // If not, continue processing further rules
+                let eval = match *op {
+                    Operation::LT => part[*cat] < *value,
+                    Operation::GT => part[*cat] > *value,
+                };
+                if eval {
+                    return execute_workflow(workflow.to_owned(), workflows, part);
+                }
+            }
+            // Workflow only - run the given workflow and stop processing rules
+            WorkflowRule::Command(cmd) => return execute_workflow(cmd.to_owned(), workflows, part),
+        }
+    }
+    unreachable!()
+}
+
 fn count_accepted_combinations(
     segments: Vec<(usize, usize)>,
     name: String,
     workflow_map: &HashMap<String, Vec<WorkflowRule>>,
 ) -> usize {
+    // If this workflow path is rejected, then none of the segments will be accepted - return 0
     if name == "R" {
         return 0;
     }
+    // If this workflow path is accepted, count the total combinations for the given segments
+    // Multiply possible x * m * a * s to get all combinations
     if name == "A" {
         return segments
             .iter()
@@ -94,25 +107,35 @@ fn count_accepted_combinations(
             .unwrap();
     }
 
+    // Otherwise, find the named workflow and process the rules in order given the segments
     let mut total = 0;
     let mut remaining = segments;
     for rule in workflow_map.get(&name).unwrap() {
         match rule {
             WorkflowRule::Rule(cat, op, value, workflow) => {
+                // Conditional rule. Split the segment for the given category into two
+                // The successful set goes to the workflow, and the unsuccessful set continues on
+                // to further rules (remaining)
                 let (wf_seg, rem_seg) = match *op {
-                    LT => ((remaining[*cat].0, *value - 1), (*value, remaining[*cat].1)),
-                    GT => ((*value + 1, remaining[*cat].1), (remaining[*cat].0, *value)),
-                    _ => unreachable!(),
+                    Operation::LT => ((remaining[*cat].0, *value - 1), (*value, remaining[*cat].1)),
+                    Operation::GT => ((*value + 1, remaining[*cat].1), (remaining[*cat].0, *value)),
                 };
+                // Take the remaining segments and replace one segment to pass to the workflow
                 let mut wf = remaining.clone();
                 wf[*cat] = wf_seg;
+                // Add the total of that path to the running total for this workflow, but do not continue
+                // checking this segment in further rules.
                 total += count_accepted_combinations(wf, workflow.to_owned(), workflow_map);
 
-                remaining = remaining.clone();
+                // Replace the remaining segment for this category with those not matching the condition
+                // Continue to further rules
                 remaining[*cat] = rem_seg;
             }
             WorkflowRule::Command(cmd) => {
-                return total + count_accepted_combinations(remaining, cmd.to_owned(), workflow_map)
+                // Add the total of that path to the running total for this workflow, and then return the total
+                // instead of checking further rules
+                return total
+                    + count_accepted_combinations(remaining, cmd.to_owned(), workflow_map);
             }
         }
     }
@@ -123,25 +146,25 @@ fn count_accepted_combinations(
 pub fn part_one(input: &str) -> Option<usize> {
     let (parts, workflow_map) = parse(input);
 
-    let mut accepted = Vec::new();
-
-    for part in parts {
-        let part_vec = vec![part.0, part.1, part.2, part.3];
-        if execute_workflow(String::from("in"), &workflow_map, &part_vec) {
-            accepted.push(part_vec);
-        }
-    }
-
-    Some(accepted.iter().map(|part| part.iter().sum::<usize>()).sum())
+    // Find all the parts that are accepted by eecuting the workflow for that part
+    // Sum the elements of the part (ratings), and then return the sum of this across all parts
+    Some(
+        parts
+            .iter()
+            .map(|part| vec![part.0, part.1, part.2, part.3])
+            .filter(|part| execute_workflow(String::from("in"), &workflow_map, &part))
+            .map(|part| part.iter().sum::<usize>())
+            .sum(),
+    )
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
     let (_, workflow_map) = parse(input);
 
-    let segments = vec![(1, 4000); 4];
-
+    // Traverse the workflows counting accepted combinations across the segments
+    // starting with 1 - 4000 for each
     Some(count_accepted_combinations(
-        segments,
+        vec![(1, 4000); 4],
         String::from("in"),
         &workflow_map,
     ))
