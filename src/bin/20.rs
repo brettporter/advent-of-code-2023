@@ -12,7 +12,7 @@ use nom::{
 
 advent_of_code::solution!(20);
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 enum Pulse {
     LOW,
     HIGH,
@@ -137,8 +137,12 @@ fn push_button(
                 }
             }
             ModuleType::CONJUNCTION => {
-                // update memory for that input
-                state[idx] ^= 1 << from_idx;
+                // update memory for that input. First clear bit, then set if high.
+                // TODO: unit test - part 1 passes if this is wrong but input doesn't
+                state[idx] &= !(1 << from_idx);
+                if pulse == Pulse::HIGH {
+                    state[idx] |= 1 << from_idx;
+                }
 
                 Some(
                     if module_inputs[idx]
@@ -153,12 +157,11 @@ fn push_button(
             }
             ModuleType::BROADCASTER => Some(pulse),
         } {
+            match send {
+                Pulse::LOW => low += module.cables.len() as u32,
+                Pulse::HIGH => high += module.cables.len() as u32,
+            }
             for c in &module.cables {
-                match send {
-                    Pulse::LOW => low += 1,
-                    Pulse::HIGH => high += 1,
-                }
-
                 // Unknown labels can be ignored (e.g. output)
                 if let Some(&dest_idx) = module_lookup.get(c) {
                     queue.push_back((send, idx, dest_idx));
