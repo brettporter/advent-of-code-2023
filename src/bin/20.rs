@@ -63,16 +63,14 @@ fn parse(input: &str) -> Vec<Module> {
     mappings
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
-    // TODO: button module should not be pressed while still sending (hint for part 2?)
-    // pulses sent in phases - send to a, b, c must finish c before the consequences of a are sent on
-
-    // TODO: tests
-    // Check single push against example in the doc
-    // Repeat is same signal as all off
-    // Check second example 4 times against the document, back to original state
-    // Cycle detection?
-
+fn setup_machine(
+    input: &str,
+) -> (
+    Vec<Module>,
+    HashMap<String, usize>,
+    Vec<Vec<usize>>,
+    Vec<u64>,
+) {
     let modules = parse(input);
     let module_lookup = HashMap::<_, _>::from_iter(
         modules
@@ -93,18 +91,8 @@ pub fn part_one(input: &str) -> Option<u32> {
         .collect();
 
     // 0/1 = on/off (flipflop), bitmask of connected modules low/high (conjunction)
-    let mut state = vec![0; modules.len()];
-
-    let (mut low_total, mut high_total) = (0, 0);
-
-    for _ in 0..1000 {
-        // TODO: memoise state? detect cycle for low/high increases?
-        let (low, high) = push_button(&mut state, &modules, &module_lookup, &module_inputs);
-        low_total += low;
-        high_total += high;
-    }
-
-    Some(low_total * high_total)
+    let state = vec![0; modules.len()];
+    (modules, module_lookup, module_inputs, state)
 }
 
 fn push_button(
@@ -112,9 +100,9 @@ fn push_button(
     modules: &Vec<Module>,
     module_lookup: &HashMap<String, usize>,
     module_inputs: &Vec<Vec<usize>>,
-) -> (u32, u32) {
+) -> (u32, u32, u32) {
     let mut queue = VecDeque::new();
-    let (mut low, mut high) = (1, 0);
+    let (mut low, mut high, mut rx_low_pulses) = (1, 0, 0);
 
     // push the button
     queue.push_back((Pulse::LOW, usize::MAX, module_lookup["broadcaster"]));
@@ -162,6 +150,13 @@ fn push_button(
                 Pulse::HIGH => high += module.cables.len() as u32,
             }
             for c in &module.cables {
+                if c == "rx" {
+                    // TODO: do we ignore high, or does that also make it invalid?
+                    if send == Pulse::LOW {
+                        rx_low_pulses += 1;
+                    }
+                }
+
                 // Unknown labels can be ignored (e.g. output)
                 if let Some(&dest_idx) = module_lookup.get(c) {
                     queue.push_back((send, idx, dest_idx));
@@ -169,11 +164,47 @@ fn push_button(
             }
         }
     }
-    (low, high)
+    (low, high, rx_low_pulses)
+}
+
+pub fn part_one(input: &str) -> Option<u32> {
+    // TODO: button module should not be pressed while still sending (hint for part 2?)
+    // pulses sent in phases - send to a, b, c must finish c before the consequences of a are sent on
+
+    // TODO: tests
+    // Check single push against example in the doc
+    // Repeat is same signal as all off
+    // Check second example 4 times against the document, back to original state
+    // Cycle detection?
+
+    let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
+
+    let (mut low_total, mut high_total) = (0, 0);
+
+    for _ in 0..1000 {
+        // TODO: memoise state? detect cycle for low/high increases?
+        let (low, high, _) = push_button(&mut state, &modules, &module_lookup, &module_inputs);
+        low_total += low;
+        high_total += high;
+    }
+
+    Some(low_total * high_total)
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
+
+    let mut count = 0;
+    loop {
+        let (_, _, rx_low_pulses) =
+            push_button(&mut state, &modules, &module_lookup, &module_inputs);
+
+        // TODO: super quick brute force, but really need to reverse the logic back down the gates instead
+        count += 1;
+        if rx_low_pulses == 1 {
+            return Some(count);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -191,11 +222,5 @@ mod tests {
             "examples", DAY, 12,
         ));
         assert_eq!(result, Some(11687500));
-    }
-
-    #[test]
-    fn test_part_two() {
-        // let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        // assert_eq!(result, None);
     }
 }
