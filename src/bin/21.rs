@@ -21,31 +21,55 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<u32> {
     }
 
     let mut locations = HashSet::new();
+    print_locations(&locations, &grid);
+
     locations.insert(start.unwrap());
     for _ in 0..num_steps {
         let mut new_locations = HashSet::new();
         for (x, y) in locations {
             // Left
             if x > 0 && grid[y][x - 1] == 0 {
-                new_locations.insert((y, x - 1));
+                new_locations.insert((x - 1, y));
             }
             // Up
             if y > 0 && grid[y - 1][x] == 0 {
-                new_locations.insert((y - 1, x));
+                new_locations.insert((x, y - 1));
             }
             // Right
             if x < w - 1 && grid[y][x + 1] == 0 {
-                new_locations.insert((y, x + 1));
+                new_locations.insert((x + 1, y));
             }
             // Down
             if y < h - 1 && grid[y + 1][x] == 0 {
-                new_locations.insert((y + 1, x));
+                new_locations.insert((x, y + 1));
             }
         }
         locations = new_locations;
+        print_locations(&locations, &grid);
     }
 
     Some(locations.len() as u32)
+}
+
+fn print_locations(locations: &HashSet<(usize, usize)>, grid: &Vec<Vec<i32>>) {
+    for (y, row) in grid.iter().enumerate() {
+        for (x, col) in row.iter().enumerate() {
+            if locations.contains(&(x, y)) {
+                print!("O");
+            } else {
+                print!(
+                    "{}",
+                    match grid[y][x] {
+                        0 => ".",
+                        1 => "#",
+                        _ => panic!(),
+                    }
+                );
+            }
+        }
+        println!();
+    }
+    println!();
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
