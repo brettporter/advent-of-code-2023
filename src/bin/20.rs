@@ -18,11 +18,11 @@ enum Pulse {
     HIGH,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum ModuleType {
     BROADCASTER,
-    FLIPFLOP,
-    CONJUNCTION,
+    FLIPFLOP,    // NOT gate
+    CONJUNCTION, // NAND gate
 }
 
 #[derive(Debug, Clone)]
@@ -181,30 +181,94 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (mut low_total, mut high_total) = (0, 0);
 
+    let mut value_keys = HashMap::new();
+
+    for m in &modules {
+        print!("{} ", &m.name[0..2]);
+    }
+    println!();
+    for m in &modules {
+        print!(
+            " {} ",
+            match m.mod_type {
+                ModuleType::BROADCASTER => "B",
+                ModuleType::FLIPFLOP => "F",
+                ModuleType::CONJUNCTION => "C",
+            }
+        );
+    }
+    println!();
+
     for _ in 0..1000 {
         // TODO: memoise state? detect cycle for low/high increases?
         let (low, high, _) = push_button(&mut state, &modules, &module_lookup, &module_inputs);
+
+        print_state(&state, &modules, &mut value_keys);
+
         low_total += low;
         high_total += high;
+    }
+
+    println!();
+    println!("Keys:");
+    for (v, k) in value_keys {
+        let sv: Vec<_> = modules
+            .iter()
+            .enumerate()
+            .filter_map(|(i, m)| (v & (1 << i) != 0).then_some(&m.name))
+            .collect();
+
+        // TODO: why is k repeated?
+        println!("  {:2x} => {:?}", k, sv);
     }
 
     Some(low_total * high_total)
 }
 
+fn print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut HashMap<u64, u8>) {
+    for (i, v) in state.iter().enumerate() {
+        if modules[i].mod_type == ModuleType::CONJUNCTION {
+            let next = value_keys.len() as u8;
+            let c = value_keys.entry(*v).or_insert(next);
+            print!("{:2x} ", c);
+        } else {
+            print!("{:2} ", v);
+        }
+    }
+    println!();
+}
+
 pub fn part_two(input: &str) -> Option<u32> {
     let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
 
-    let mut count = 0;
-    loop {
-        let (_, _, rx_low_pulses) =
-            push_button(&mut state, &modules, &module_lookup, &module_inputs);
+    // for rx to be sent 0, one of it's inputs must send 0
+    // for inputs
+    //  if a not gate, one of it's inputs must send !v
+    //  if a nand gate, if it is 0, all of it's inputs must send 1 (but can be state reliant)
+    //  if a nand gate, if it is 1, one of it's inputs must send 0
+    //  if it is broadcast, discard if 1 because button sends 0
+    // how many valid combos are there?
+    // what is the required state to trigger the 1? should I be evaluating this as it goes?
+    // how do I figure out the shortest path to that state?
 
-        // TODO: super quick brute force, but really need to reverse the logic back down the gates instead
-        count += 1;
-        if rx_low_pulses == 1 {
-            return Some(count);
-        }
-    }
+    // Patterns (up to 1000):
+    //  9 NAND gates, rest are NOT
+    //  Looks like xc and gh has a period of 4.
+    //  Looks like bh (1), jf (2), mf (3), sh (5), mz (7) is constant
+    //  cn, hz have period of 15
+    //  Note those with period have certain number of repeats before changing.
+    //  Some of the changes are not a full period, there's one value in between
+
+    let start = modules
+        .iter()
+        .find(|m| m.cables.contains(&"rx".to_string()))
+        .unwrap();
+
+    println!(
+        "g = {:?} {:?}",
+        start, module_inputs[module_lookup[&start.name]]
+    );
+    None
 }
 
 #[cfg(test)]
