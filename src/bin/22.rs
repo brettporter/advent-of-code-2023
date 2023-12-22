@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use itertools::Itertools;
 
 advent_of_code::solution!(22);
@@ -70,7 +68,7 @@ impl Brick {
     }
 }
 
-pub fn part_one(input: &str) -> Option<usize> {
+pub fn create_structure(input: &str) -> Vec<(usize, Vec<usize>)> {
     let mut bricks = input
         .trim()
         .split("\n")
@@ -127,22 +125,33 @@ pub fn part_one(input: &str) -> Option<usize> {
         }
     }
 
-    let mut cannot_disintegrate = HashSet::new();
-    for brick in bricks.iter() {
-        let supported_by = brick
-            .cubes()
-            .iter()
-            .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
-            .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
-            .unique()
-            .collect::<Vec<_>>();
+    bricks
+        .iter()
+        .map(|brick| {
+            let supported_by = brick
+                .cubes()
+                .iter()
+                .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
+                .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
+                .unique()
+                .collect::<Vec<_>>();
 
-        if supported_by.len() == 1 {
-            cannot_disintegrate.extend(supported_by);
-        }
-    }
+            (brick.id, supported_by)
+        })
+        .collect::<Vec<_>>()
+}
 
-    Some(bricks.len() - cannot_disintegrate.len())
+pub fn part_one(input: &str) -> Option<usize> {
+    let structure = create_structure(input);
+
+    Some(
+        structure.len()
+            - structure
+                .iter()
+                .filter_map(|(_, supported_by)| (supported_by.len() == 1).then_some(supported_by))
+                .unique()
+                .count(),
+    )
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
