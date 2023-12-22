@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet, VecDeque};
+
 use itertools::Itertools;
 
 advent_of_code::solution!(22);
@@ -68,7 +70,7 @@ impl Brick {
     }
 }
 
-pub fn create_structure(input: &str) -> Vec<(usize, Vec<usize>)> {
+pub fn create_structure(input: &str) -> HashMap<usize, Vec<usize>> {
     let mut bricks = input
         .trim()
         .split("\n")
@@ -125,20 +127,18 @@ pub fn create_structure(input: &str) -> Vec<(usize, Vec<usize>)> {
         }
     }
 
-    bricks
-        .iter()
-        .map(|brick| {
-            let supported_by = brick
-                .cubes()
-                .iter()
-                .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
-                .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
-                .unique()
-                .collect::<Vec<_>>();
-
-            (brick.id, supported_by)
-        })
-        .collect::<Vec<_>>()
+    let mut result = HashMap::new();
+    for brick in bricks {
+        let supported_by = brick
+            .cubes()
+            .iter()
+            .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
+            .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
+            .unique()
+            .collect::<Vec<_>>();
+        result.insert(brick.id, supported_by);
+    }
+    result
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
@@ -154,8 +154,40 @@ pub fn part_one(input: &str) -> Option<usize> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<usize> {
+    let structure = create_structure(input);
+
+    // Ones to disintegrate
+    let to_disintegrate = structure
+        .iter()
+        .filter_map(|(_, supported_by)| (supported_by.len() == 1).then(|| supported_by[0]))
+        .unique()
+        .collect::<Vec<_>>();
+
+    let mut total = 0;
+    for d in to_disintegrate {
+        // chain reaction
+        let mut disintegrated = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(d);
+
+        while let Some(brick) = queue.pop_front() {
+            if !disintegrated.contains(&brick) {
+                disintegrated.insert(brick);
+                for (chained_brick, supported_by) in &structure {
+                    if supported_by.contains(&brick)
+                        && supported_by.iter().all(|s| disintegrated.contains(s))
+                    {
+                        queue.push_back(*chained_brick);
+                    }
+                }
+            }
+        }
+        // Exclude the origin from the total
+        total += disintegrated.len() - 1;
+    }
+
+    Some(total)
 }
 
 #[cfg(test)]
@@ -171,6 +203,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(7));
     }
 }
