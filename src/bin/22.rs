@@ -1,7 +1,7 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 advent_of_code::solution!(22);
 
@@ -180,7 +180,7 @@ pub fn part_two(input: &str) -> Option<usize> {
     let mut total = 0;
     for d in to_disintegrate {
         // chain reaction
-        let mut disintegrated = HashSet::new();
+        let mut disintegrated = FxHashSet::default();
         let mut queue = VecDeque::new();
         queue.push_back(d);
 
