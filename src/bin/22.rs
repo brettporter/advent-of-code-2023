@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(22);
 
@@ -202,27 +202,24 @@ pub fn part_two(input: &str) -> Option<usize> {
         // Create a chain reaction by disintegrating this brick, then walking through
         // all the bricks it is supporting, and that they are in turn supporting,
         // marking which bricks get disintegrated
-        let mut disintegrated = FxHashSet::default();
+        let mut disintegrated = vec![false; structure.len()];
         let mut queue = VecDeque::new();
         queue.push_back(d);
 
         while let Some(brick) = queue.pop_front() {
-            disintegrated.insert(brick);
+            disintegrated[brick] = true;
             if supports_map.contains_key(&brick) {
                 for chained_brick in &supports_map[&brick] {
                     // The brick will be disintegrated if all the bricks supporting it have
                     // been disintegrated
-                    if structure[chained_brick]
-                        .iter()
-                        .all(|b| disintegrated.contains(b))
-                    {
+                    if structure[chained_brick].iter().all(|&b| disintegrated[b]) {
                         queue.push_back(*chained_brick);
                     }
                 }
             }
         }
         // Exclude the origin from the total
-        total += disintegrated.len() - 1;
+        total += disintegrated.iter().filter(|v| **v).count() - 1;
     }
 
     Some(total)
