@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(22);
 
@@ -77,7 +76,7 @@ impl Brick {
     }
 }
 
-pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
+pub fn create_structure(input: &str) -> Vec<Vec<usize>> {
     let mut bricks = parse_input(input);
 
     const GROUND: usize = usize::MAX;
@@ -127,22 +126,21 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
         }
     }
 
-    // TODO: possible optimisation - vector instead of hashmap
     // For each brick, find all the bricks it is supported by checking if any of the cubes move down into a brick
     // instead of ground, empty space or itself
-    let mut result = FxHashMap::default();
-    for brick in bricks {
-        let supported_by = brick
-            .cubes
-            .iter()
-            .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
-            .filter(|&c| c != None && c != Some(GROUND) && c != Some(brick.id))
-            .map(|c| c.unwrap())
-            .unique()
-            .collect::<Vec<_>>();
-        result.insert(brick.id, supported_by);
-    }
-    result
+    bricks
+        .iter()
+        .map(|brick| {
+            brick
+                .cubes
+                .iter()
+                .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
+                .filter(|&c| c != None && c != Some(GROUND) && c != Some(brick.id))
+                .map(|c| c.unwrap())
+                .unique()
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 fn parse_input(input: &str) -> Vec<Brick> {
@@ -170,7 +168,7 @@ pub fn part_one(input: &str) -> Option<usize> {
         structure.len()
             - structure
                 .iter()
-                .filter_map(|(_, supported_by)| (supported_by.len() == 1).then_some(supported_by))
+                .filter_map(|supported_by| (supported_by.len() == 1).then_some(supported_by))
                 .unique()
                 .count(),
     )
@@ -182,18 +180,15 @@ pub fn part_two(input: &str) -> Option<usize> {
     // Use the part 1 solution to find all the bricks that will cause others to fall if disintegrated
     let to_disintegrate = structure
         .iter()
-        .filter_map(|(_, supported_by)| (supported_by.len() == 1).then(|| supported_by[0]))
+        .filter_map(|supported_by| (supported_by.len() == 1).then(|| supported_by[0]))
         .unique()
         .collect::<Vec<_>>();
 
     // Create an inverse index of the structure to find what other bricks each is supporting
-    let mut supports_map = FxHashMap::default();
-    for (&brick, supported_by) in &structure {
-        for s in supported_by {
-            supports_map
-                .entry(s)
-                .and_modify(|v: &mut Vec<usize>| v.push(brick))
-                .or_insert(vec![brick]);
+    let mut supports_map = vec![Vec::new(); structure.len()];
+    for (brick, supported_by) in structure.iter().enumerate() {
+        for &s in supported_by {
+            supports_map[s].push(brick);
         }
     }
 
@@ -208,13 +203,11 @@ pub fn part_two(input: &str) -> Option<usize> {
 
         while let Some(brick) = queue.pop_front() {
             disintegrated[brick] = true;
-            if supports_map.contains_key(&brick) {
-                for chained_brick in &supports_map[&brick] {
-                    // The brick will be disintegrated if all the bricks supporting it have
-                    // been disintegrated
-                    if structure[chained_brick].iter().all(|&b| disintegrated[b]) {
-                        queue.push_back(*chained_brick);
-                    }
+            for &chained_brick in &supports_map[brick] {
+                // The brick will be disintegrated if all the bricks supporting it have
+                // been disintegrated
+                if structure[chained_brick].iter().all(|&b| disintegrated[b]) {
+                    queue.push_back(chained_brick);
                 }
             }
         }
