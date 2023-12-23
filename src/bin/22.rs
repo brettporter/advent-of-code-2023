@@ -38,17 +38,19 @@ impl Point {
 #[derive(Debug)]
 struct Brick {
     id: usize,
-    start: Point,
-    end: Point,
+    cubes: Vec<Point>,
 }
 
 impl Brick {
     fn new(id: usize, start: Point, end: Point) -> Self {
-        Self { id, start, end }
+        Self {
+            id,
+            cubes: Brick::create_cubes(&start, &end),
+        }
     }
 
-    fn cubes(&self) -> Vec<Point> {
-        let (dx, dy, dz) = self.end.diff(&self.start);
+    fn create_cubes(start: &Point, end: &Point) -> Vec<Point> {
+        let (dx, dy, dz) = end.diff(start);
         let brick_len = (dx + dy + dz).abs() + 1;
         let (dir_x, dir_y, dir_z) = (dx.signum(), dy.signum(), dz.signum());
 
@@ -56,18 +58,19 @@ impl Brick {
             .into_iter()
             .map(|i| {
                 Point::new(
-                    self.start.x + i * dir_x,
-                    self.start.y + i * dir_y,
-                    self.start.z + i * dir_z,
+                    start.x + i * dir_x,
+                    start.y + i * dir_y,
+                    start.z + i * dir_z,
                 )
             })
             .collect()
     }
 
     fn move_down(&mut self) {
-        assert!(self.start.z > 1 && self.end.z > 1);
-        self.start.z -= 1;
-        self.end.z -= 1;
+        for c in self.cubes.iter_mut() {
+            assert!(c.z > 1);
+            c.z -= 1;
+        }
     }
 }
 
@@ -99,7 +102,7 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
     }
 
     for brick in bricks.iter() {
-        for c in brick.cubes() {
+        for c in &brick.cubes {
             assert!(grid_state[c.z as usize][c.y as usize][c.x as usize] == EMPTY);
             grid_state[c.z as usize][c.y as usize][c.x as usize] = brick.id;
         }
@@ -110,18 +113,17 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
         done = true;
 
         for brick in bricks.iter_mut() {
-            let can_move = brick.cubes().iter().all(|c| {
+            let can_move = brick.cubes.iter().all(|c| {
                 grid_state[c.z as usize - 1][c.y as usize][c.x as usize] == EMPTY
                     || grid_state[c.z as usize - 1][c.y as usize][c.x as usize] == brick.id
             });
             if can_move {
                 done = false;
-                // TODO: could be more efficient, currently erase, move, draw
-                for c in brick.cubes() {
+                for c in &brick.cubes {
                     grid_state[c.z as usize][c.y as usize][c.x as usize] = EMPTY;
                 }
                 brick.move_down();
-                for c in brick.cubes() {
+                for c in &brick.cubes {
                     grid_state[c.z as usize][c.y as usize][c.x as usize] = brick.id;
                 }
             }
@@ -131,7 +133,7 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
     let mut result = FxHashMap::default();
     for brick in bricks {
         let supported_by = brick
-            .cubes()
+            .cubes
             .iter()
             .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
             .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
