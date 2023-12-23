@@ -50,6 +50,9 @@ impl Brick {
     }
 
     fn create_cubes(start: &Point, end: &Point) -> Vec<Point> {
+        // Create a Point for each cube to easily compare against the grid
+        // Since each is a single straight line, this generalised solution will
+        // walk along the direction of whichever is nonzero
         let (dx, dy, dz) = end.diff(start);
         let brick_len = (dx + dy + dz).abs() + 1;
         let (dir_x, dir_y, dir_z) = (dx.signum(), dy.signum(), dz.signum());
@@ -75,32 +78,21 @@ impl Brick {
 }
 
 pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
-    let mut bricks = input
-        .trim()
-        .split("\n")
-        .enumerate()
-        .map(|(i, line)| {
-            let (start, end) = line
-                .split("~")
-                .map(|p| Point::from_str(p))
-                .collect_tuple()
-                .unwrap();
-            Brick::new(i + 1, start, end)
-        })
-        .collect_vec();
+    let mut bricks = parse_input(input);
 
     const EMPTY: usize = 0;
     const GROUND: usize = usize::MAX;
 
-    // TODO: check intersection with other bricks rather than grid state double handling?
+    // Populate a 3D grid
     let mut grid_state = [[[EMPTY; SIZE as usize]; SIZE as usize]; Z_SIZE as usize];
-    // ground
+    // populate ground
     for y in 0..SIZE {
         for x in 0..SIZE {
             grid_state[0][y as usize][x as usize] = GROUND;
         }
     }
 
+    // populate bricks in initial state
     for brick in bricks.iter() {
         for c in &brick.cubes {
             assert!(grid_state[c.z as usize][c.y as usize][c.x as usize] == EMPTY);
@@ -108,17 +100,23 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
         }
     }
 
+    // Move all bricks as far down as they can fall before being obstructed
+    // TODO: possible optimisation - move each brick all the way to the bottom in one go
     let mut done = false;
     while !done {
         done = true;
 
         for brick in bricks.iter_mut() {
+            // a brick can move if no other brick below it - all cubes will be empty, or part of
+            // this brick
             let can_move = brick.cubes.iter().all(|c| {
-                grid_state[c.z as usize - 1][c.y as usize][c.x as usize] == EMPTY
-                    || grid_state[c.z as usize - 1][c.y as usize][c.x as usize] == brick.id
+                let state = grid_state[c.z as usize - 1][c.y as usize][c.x as usize];
+                state == EMPTY || state == brick.id
             });
             if can_move {
+                // if this brick could move, flag that we need to start the loop again
                 done = false;
+                // erase the brick, move it, then draw again
                 for c in &brick.cubes {
                     grid_state[c.z as usize][c.y as usize][c.x as usize] = EMPTY;
                 }
@@ -130,6 +128,9 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
         }
     }
 
+    // TODO: possible optimisation - vector instead of hashmap
+    // For each brick, find all the bricks it is supported by checking if any of the cubes move down into a brick
+    // instead of ground, empty space or itself
     let mut result = FxHashMap::default();
     for brick in bricks {
         let supported_by = brick
@@ -144,9 +145,27 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
     result
 }
 
+fn parse_input(input: &str) -> Vec<Brick> {
+    input
+        .trim()
+        .split("\n")
+        .enumerate()
+        .map(|(i, line)| {
+            let (start, end) = line
+                .split("~")
+                .map(|p| Point::from_str(p))
+                .collect_tuple()
+                .unwrap();
+            Brick::new(i + 1, start, end)
+        })
+        .collect_vec()
+}
+
 pub fn part_one(input: &str) -> Option<usize> {
     let structure = create_structure(input);
 
+    // Using the structure, find all the bricks that are supported by only one brick - these can't be disintegrated
+    // Return the number that can be disintegrated by subtracting from the total
     Some(
         structure.len()
             - structure
@@ -160,13 +179,14 @@ pub fn part_one(input: &str) -> Option<usize> {
 pub fn part_two(input: &str) -> Option<usize> {
     let structure = create_structure(input);
 
-    // Ones to disintegrate
+    // Use the part 1 solution to find all the bricks that will cause others to fall if disintegrated
     let to_disintegrate = structure
         .iter()
         .filter_map(|(_, supported_by)| (supported_by.len() == 1).then(|| supported_by[0]))
         .unique()
         .collect::<Vec<_>>();
 
+    // Create an inverse index of the structure to find what other bricks each is supporting
     let mut supports_map = FxHashMap::default();
     for (&brick, supported_by) in &structure {
         for s in supported_by {
@@ -179,7 +199,9 @@ pub fn part_two(input: &str) -> Option<usize> {
 
     let mut total = 0;
     for d in to_disintegrate {
-        // chain reaction
+        // Create a chain reaction by disintegrating this brick, then walking through
+        // all the bricks it is supporting, and that they are in turn supporting,
+        // marking which bricks get disintegrated
         let mut disintegrated = FxHashSet::default();
         let mut queue = VecDeque::new();
         queue.push_back(d);
@@ -188,6 +210,8 @@ pub fn part_two(input: &str) -> Option<usize> {
             disintegrated.insert(brick);
             if supports_map.contains_key(&brick) {
                 for chained_brick in &supports_map[&brick] {
+                    // The brick will be disintegrated if all the bricks supporting it have
+                    // been disintegrated
                     if structure[chained_brick]
                         .iter()
                         .all(|b| disintegrated.contains(b))
