@@ -1,6 +1,7 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(22);
 
@@ -70,7 +71,7 @@ impl Brick {
     }
 }
 
-pub fn create_structure(input: &str) -> HashMap<usize, Vec<usize>> {
+pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
     let mut bricks = input
         .trim()
         .split("\n")
@@ -127,7 +128,7 @@ pub fn create_structure(input: &str) -> HashMap<usize, Vec<usize>> {
         }
     }
 
-    let mut result = HashMap::new();
+    let mut result = FxHashMap::default();
     for brick in bricks {
         let supported_by = brick
             .cubes()
@@ -164,7 +165,7 @@ pub fn part_two(input: &str) -> Option<usize> {
         .unique()
         .collect::<Vec<_>>();
 
-    let mut supports_map = HashMap::new();
+    let mut supports_map = FxHashMap::default();
     for (&brick, supported_by) in &structure {
         for s in supported_by {
             supports_map
