@@ -80,23 +80,22 @@ impl Brick {
 pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
     let mut bricks = parse_input(input);
 
-    const EMPTY: usize = 0;
     const GROUND: usize = usize::MAX;
 
     // Populate a 3D grid
-    let mut grid_state = [[[EMPTY; SIZE as usize]; SIZE as usize]; Z_SIZE as usize];
+    let mut grid_state = [[[None; SIZE as usize]; SIZE as usize]; Z_SIZE as usize];
     // populate ground
     for y in 0..SIZE {
         for x in 0..SIZE {
-            grid_state[0][y as usize][x as usize] = GROUND;
+            grid_state[0][y as usize][x as usize] = Some(GROUND);
         }
     }
 
     // populate bricks in initial state
     for brick in bricks.iter() {
         for c in &brick.cubes {
-            assert!(grid_state[c.z as usize][c.y as usize][c.x as usize] == EMPTY);
-            grid_state[c.z as usize][c.y as usize][c.x as usize] = brick.id;
+            assert!(grid_state[c.z as usize][c.y as usize][c.x as usize] == None);
+            grid_state[c.z as usize][c.y as usize][c.x as usize] = Some(brick.id);
         }
     }
 
@@ -111,18 +110,18 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
             // this brick
             let can_move = brick.cubes.iter().all(|c| {
                 let state = grid_state[c.z as usize - 1][c.y as usize][c.x as usize];
-                state == EMPTY || state == brick.id
+                state == None || state == Some(brick.id)
             });
             if can_move {
                 // if this brick could move, flag that we need to start the loop again
                 done = false;
                 // erase the brick, move it, then draw again
                 for c in &brick.cubes {
-                    grid_state[c.z as usize][c.y as usize][c.x as usize] = EMPTY;
+                    grid_state[c.z as usize][c.y as usize][c.x as usize] = None;
                 }
                 brick.move_down();
                 for c in &brick.cubes {
-                    grid_state[c.z as usize][c.y as usize][c.x as usize] = brick.id;
+                    grid_state[c.z as usize][c.y as usize][c.x as usize] = Some(brick.id);
                 }
             }
         }
@@ -137,7 +136,8 @@ pub fn create_structure(input: &str) -> FxHashMap<usize, Vec<usize>> {
             .cubes
             .iter()
             .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
-            .filter(|&c| c != EMPTY && c != GROUND && c != brick.id)
+            .filter(|&c| c != None && c != Some(GROUND) && c != Some(brick.id))
+            .map(|c| c.unwrap())
             .unique()
             .collect::<Vec<_>>();
         result.insert(brick.id, supported_by);
@@ -156,7 +156,7 @@ fn parse_input(input: &str) -> Vec<Brick> {
                 .map(|p| Point::from_str(p))
                 .collect_tuple()
                 .unwrap();
-            Brick::new(i + 1, start, end)
+            Brick::new(i, start, end)
         })
         .collect_vec()
 }
