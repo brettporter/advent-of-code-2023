@@ -39,39 +39,56 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<u32> {
     locations.insert(start.unwrap());
     for i in 0..num_steps {
         let mut new_locations = HashSet::new();
+        let mut done = false;
         for (x, y) in locations {
             // Left
             if grid[y.rem_euclid(size as i32) as usize][(x - 1).rem_euclid(size as i32) as usize]
                 == 0
             {
                 new_locations.insert((x - 1, y));
+                if x == -((GARDEN_SIZE / 2) * size as i32) + 1 {
+                    done = true;
+                }
             }
             // Up
             if grid[(y - 1).rem_euclid(size as i32) as usize][x.rem_euclid(size as i32) as usize]
                 == 0
             {
                 new_locations.insert((x, y - 1));
+                if y == -((GARDEN_SIZE / 2) * size as i32) + 1 {
+                    done = true;
+                }
             }
             // Right
             if grid[y.rem_euclid(size as i32) as usize][(x + 1).rem_euclid(size as i32) as usize]
                 == 0
             {
                 new_locations.insert((x + 1, y));
+                if x == size as i32 * (GARDEN_SIZE / 2 + 1) - 1 {
+                    done = true;
+                }
             }
             // Down
             if grid[(y + 1).rem_euclid(size as i32) as usize][x.rem_euclid(size as i32) as usize]
                 == 0
             {
                 new_locations.insert((x, y + 1));
+                if y == size as i32 * (GARDEN_SIZE / 2 + 1) - 1 {
+                    done = true;
+                }
             }
         }
         println!(
-            "Total nodes {}, Added Nodes {}",
+            "Step {}: Total nodes {}, Added Nodes {}",
+            i + 1,
             new_locations.len(),
             new_locations.len() - locations_len,
         );
         locations = new_locations;
         locations_len = locations.len();
+        if done {
+            break;
+        }
         if locations.contains(&(-(size as i32 * full_grid), -(size as i32 * full_grid)))
             && locations.contains(&(
                 -(size as i32 * full_grid),
@@ -118,27 +135,44 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<u32> {
         //     next_cube += 1;
         // }
     }
-    // _print_locations(&locations, &grid);
+    _print_locations(&locations, &grid);
     println!();
 
     Some(locations.len() as u32)
 }
 
+const GARDEN_SIZE: i32 = 7;
+
 fn _print_locations(locations: &HashSet<(i32, i32)>, grid: &Vec<Vec<i32>>) {
     let (w, h) = (grid[0].len() as i32, grid.len() as i32);
-    for y in -h..h * 2 {
-        for x in -w..w * 2 {
+    let mut garden_count = vec![vec![0; GARDEN_SIZE as usize]; GARDEN_SIZE as usize];
+    for y in -h * (GARDEN_SIZE / 2)..h * (GARDEN_SIZE / 2 + 1) {
+        for x in -w * (GARDEN_SIZE / 2)..w * (GARDEN_SIZE / 2 + 1) {
             if locations.contains(&(x as i32, y as i32)) {
-                print!("O");
+                garden_count[((y + h * (GARDEN_SIZE / 2)) / h) as usize]
+                    [((x + w * (GARDEN_SIZE / 2)) / w) as usize] += 1;
+                // print!("O");
             } else {
-                print!(
-                    "{}",
-                    match grid[y.rem_euclid(h) as usize][x.rem_euclid(w) as usize] {
-                        0 => ".",
-                        1 => "#",
-                        _ => panic!(),
-                    }
-                );
+                // print!(
+                //     "{}",
+                //     match grid[y.rem_euclid(h) as usize][x.rem_euclid(w) as usize] {
+                //         0 => ".",
+                //         1 => "#",
+                //         _ => panic!(),
+                //     }
+                // );
+            }
+        }
+        println!();
+    }
+    println!();
+
+    for (y, row) in garden_count.iter().enumerate() {
+        for (x, col) in row.iter().enumerate() {
+            if *col == 0 {
+                print!("    ");
+            } else {
+                print!("{:6}", col);
             }
         }
         println!();
@@ -151,7 +185,6 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    return None; // until performant
     count_destinations(input, 26501365)
 }
 
