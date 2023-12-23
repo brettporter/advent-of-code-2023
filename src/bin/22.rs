@@ -164,6 +164,16 @@ pub fn part_two(input: &str) -> Option<usize> {
         .unique()
         .collect::<Vec<_>>();
 
+    let mut supports_map = HashMap::new();
+    for (&brick, supported_by) in &structure {
+        for s in supported_by {
+            supports_map
+                .entry(s)
+                .and_modify(|v: &mut Vec<usize>| v.push(brick))
+                .or_insert(vec![brick]);
+        }
+    }
+
     let mut total = 0;
     for d in to_disintegrate {
         // chain reaction
@@ -172,11 +182,12 @@ pub fn part_two(input: &str) -> Option<usize> {
         queue.push_back(d);
 
         while let Some(brick) = queue.pop_front() {
-            if !disintegrated.contains(&brick) {
-                disintegrated.insert(brick);
-                for (chained_brick, supported_by) in &structure {
-                    if supported_by.contains(&brick)
-                        && supported_by.iter().all(|s| disintegrated.contains(s))
+            disintegrated.insert(brick);
+            if supports_map.contains_key(&brick) {
+                for chained_brick in &supports_map[&brick] {
+                    if structure[chained_brick]
+                        .iter()
+                        .all(|b| disintegrated.contains(b))
                     {
                         queue.push_back(*chained_brick);
                     }
