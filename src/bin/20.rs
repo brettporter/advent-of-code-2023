@@ -96,6 +96,7 @@ fn setup_machine(
 }
 
 fn push_button(
+    step: usize,
     state: &mut Vec<u64>,
     modules: &Vec<Module>,
     module_lookup: &HashMap<String, usize>,
@@ -149,6 +150,12 @@ fn push_button(
                 Pulse::LOW => low += module.cables.len() as u32,
                 Pulse::HIGH => high += module.cables.len() as u32,
             }
+            if module.mod_type == ModuleType::CONJUNCTION
+                && send == Pulse::LOW
+                && ["gh", "xc", "cn", "hz"].contains(&module.name.as_str())
+            {
+                println!("Step {step}: Send {:?} from {}", send, module.name);
+            }
             for c in &module.cables {
                 if c == "rx" {
                     // TODO: do we ignore high, or does that also make it invalid?
@@ -181,64 +188,31 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (mut low_total, mut high_total) = (0, 0);
 
-    let mut value_keys = HashMap::new();
-
-    for m in &modules {
-        print!("{} ", &m.name[0..2]);
-    }
-    println!();
-    for m in &modules {
-        print!(
-            " {} ",
-            match m.mod_type {
-                ModuleType::BROADCASTER => "B",
-                ModuleType::FLIPFLOP => "F",
-                ModuleType::CONJUNCTION => "C",
-            }
-        );
-    }
-    println!();
-
-    for _ in 0..1000 {
+    for i in 0..1000 {
         // TODO: memoise state? detect cycle for low/high increases?
-        let (low, high, _) = push_button(&mut state, &modules, &module_lookup, &module_inputs);
-
-        print_state(&state, &modules, &mut value_keys);
+        let (low, high, _) = push_button(i, &mut state, &modules, &module_lookup, &module_inputs);
 
         low_total += low;
         high_total += high;
     }
 
-    println!();
-    println!("Keys:");
-    for (v, k) in value_keys {
-        let sv: Vec<_> = modules
-            .iter()
-            .enumerate()
-            .filter_map(|(i, m)| (v & (1 << i) != 0).then_some(&m.name))
-            .collect();
-
-        // TODO: why is k repeated?
-        println!("  {:2x} => {:?}", k, sv);
-    }
-
     Some(low_total * high_total)
 }
 
-fn print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut HashMap<u64, u8>) {
+fn print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut HashMap<u64, u16>) {
     for (i, v) in state.iter().enumerate() {
         if modules[i].mod_type == ModuleType::CONJUNCTION {
-            let next = value_keys.len() as u8;
+            let next = value_keys.len() as u16;
             let c = value_keys.entry(*v).or_insert(next);
-            print!("{:2x} ", c);
+            print!("{:3x} ", c);
         } else {
-            print!("{:2} ", v);
+            print!("{:3} ", v);
         }
     }
     println!();
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<usize> {
     let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
 
     // for rx to be sent 0, one of it's inputs must send 0
@@ -268,6 +242,54 @@ pub fn part_two(input: &str) -> Option<u32> {
         "g = {:?} {:?}",
         start, module_inputs[module_lookup[&start.name]]
     );
+
+    let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
+
+    let (mut low_total, mut high_total) = (0, 0);
+
+    // let mut value_keys = HashMap::new();
+
+    // print!("{:>10} ", "");
+    // for m in &modules {
+    //     print!("{:>3} ", &m.name[0..2]);
+    // }
+    // println!();
+    // print!("{:>10} ", "");
+    // for m in &modules {
+    //     print!(
+    //         "{:>3} ",
+    //         match m.mod_type {
+    //             ModuleType::BROADCASTER => "B",
+    //             ModuleType::FLIPFLOP => "F",
+    //             ModuleType::CONJUNCTION => "C",
+    //         }
+    //     );
+    // }
+    // println!();
+    for i in 0..100000 {
+        // TODO: memoise state? detect cycle for low/high increases?
+        let (low, high, rx_low_pulses) =
+            push_button(i, &mut state, &modules, &module_lookup, &module_inputs);
+        if rx_low_pulses > 0 {
+            return Some(i);
+        }
+
+        // print!("{:>10} ", i);
+        // print_state(&state, &modules, &mut value_keys);
+    }
+
+    // println!();
+    // println!("Keys:");
+    // for (v, k) in value_keys {
+    //     let sv: Vec<_> = modules
+    //         .iter()
+    //         .enumerate()
+    //         .filter_map(|(i, m)| (v & (1 << i) != 0).then_some(&m.name))
+    //         .collect();
+
+    //     // TODO: why is k repeated?
+    //     println!("  {:3x} => {:?}", k, sv);
+    // }
     None
 }
 
