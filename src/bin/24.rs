@@ -10,10 +10,10 @@ use nom::{
 advent_of_code::solution!(24);
 
 pub fn part_one(input: &str) -> Option<usize> {
-    count_intersections(input, 200000000000000.0, 400000000000000.0)
+    count_intersections(input, 200000000000000, 400000000000000)
 }
 
-fn count_intersections(input: &str, min: f64, max: f64) -> Option<usize> {
+fn count_intersections(input: &str, min: i128, max: i128) -> Option<usize> {
     let hailstones = parse_input(input);
 
     Some(
@@ -143,8 +143,8 @@ fn parse_input(input: &str) -> Vec<(Vec<i128>, Vec<i128>)> {
 fn check_intersection(
     (pos1, vel1): &(Vec<i128>, Vec<i128>),
     (pos2, vel2): &(Vec<i128>, Vec<i128>),
-    min: f64,
-    max: f64,
+    min: i128,
+    max: i128,
 ) -> bool {
     let (x1, y1, x2, y2) = (pos1[0], pos1[1], pos1[0] + vel1[0], pos1[1] + vel1[1]);
     let (a1, b1) = (y2 - y1, x1 - x2);
@@ -159,17 +159,17 @@ fn check_intersection(
         // parallel
         false
     } else {
-        let int_x = (b2 * c1 - b1 * c2) as f64 / d as f64;
-        let int_y = (a1 * c2 - a2 * c1) as f64 / d as f64;
+        let int_x = (b2 * c1 - b1 * c2) / d;
+        let int_y = (a1 * c2 - a2 * c1) / d;
         // TODO: simplify
-        if (vel1[0].signum() < 0 && int_x > pos1[0] as f64)
-            || (vel1[0].signum() > 0 && int_x < pos1[0] as f64)
-            || (vel1[1].signum() < 0 && int_y > pos1[1] as f64)
-            || (vel1[1].signum() > 0 && int_y < pos1[1] as f64)
-            || (vel2[0].signum() < 0 && int_x > pos2[0] as f64)
-            || (vel2[0].signum() > 0 && int_x < pos2[0] as f64)
-            || (vel2[1].signum() < 0 && int_y > pos2[1] as f64)
-            || (vel2[1].signum() > 0 && int_y < pos2[1] as f64)
+        if (vel1[0].signum() < 0 && int_x > pos1[0])
+            || (vel1[0].signum() > 0 && int_x < pos1[0])
+            || (vel1[1].signum() < 0 && int_y > pos1[1])
+            || (vel1[1].signum() > 0 && int_y < pos1[1])
+            || (vel2[0].signum() < 0 && int_x > pos2[0])
+            || (vel2[0].signum() > 0 && int_x < pos2[0])
+            || (vel2[1].signum() < 0 && int_y > pos2[1])
+            || (vel2[1].signum() > 0 && int_y < pos2[1])
         {
             false
         } else {
@@ -190,16 +190,16 @@ mod tests {
         assert!(check_intersection(
             &(vec![19, 13, 30], vec![-2, 1, -2]),
             &(vec![18, 19, 22], vec![-1, -1, -2]),
-            7.0,
-            27.0
+            7,
+            27
         ));
 
         // Hailstones' paths will cross inside the test area (at x=11.667, y=16.667).
         assert!(check_intersection(
             &(vec![19, 13, 30], vec![-2, 1, -2]),
             &(vec![20, 25, 34], vec![-2, -2, -4]),
-            7.0,
-            27.0
+            7,
+            27
         ));
 
         // Hailstones' paths will cross outside the test area (at x=6.2, y=19.4).
@@ -207,8 +207,8 @@ mod tests {
             check_intersection(
                 &(vec![19, 13, 30], vec![-2, 1, -2]),
                 &(vec![12, 31, 28], vec![-1, -2, -1]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -217,8 +217,8 @@ mod tests {
             check_intersection(
                 &(vec![19, 13, 30], vec![-2, 1, -2]),
                 &(vec![20, 19, 15], vec![1, -5, -3]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -227,8 +227,8 @@ mod tests {
             check_intersection(
                 &(vec![18, 19, 22], vec![-1, -1, -2]),
                 &(vec![20, 25, 34], vec![-2, -2, -4]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -237,8 +237,8 @@ mod tests {
             check_intersection(
                 &(vec![18, 19, 22], vec![-1, -1, -2]),
                 &(vec![12, 31, 28], vec![-1, -2, -1]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -247,8 +247,8 @@ mod tests {
             check_intersection(
                 &(vec![18, 19, 22], vec![-1, -1, -2]),
                 &(vec![20, 19, 15], vec![1, -5, -3]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -257,8 +257,8 @@ mod tests {
             check_intersection(
                 &(vec![20, 25, 34], vec![-2, -2, -4]),
                 &(vec![12, 31, 28], vec![-1, -2, -1]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -267,8 +267,8 @@ mod tests {
             check_intersection(
                 &(vec![20, 25, 34], vec![-2, -2, -4]),
                 &(vec![20, 19, 15], vec![1, -5, -3]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
 
@@ -277,19 +277,16 @@ mod tests {
             check_intersection(
                 &(vec![12, 31, 28], vec![-1, -2, -1]),
                 &(vec![20, 19, 15], vec![1, -5, -3]),
-                7.0,
-                27.0
+                7,
+                27
             ) == false
         );
     }
 
     #[test]
     fn test_part_one() {
-        let result = count_intersections(
-            &advent_of_code::template::read_file("examples", DAY),
-            7.0,
-            27.0,
-        );
+        let result =
+            count_intersections(&advent_of_code::template::read_file("examples", DAY), 7, 27);
         assert_eq!(result, Some(2));
     }
 
