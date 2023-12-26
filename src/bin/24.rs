@@ -25,8 +25,104 @@ fn count_intersections(input: &str, min: f64, max: f64) -> Option<usize> {
     )
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<i128> {
+    let hailstones = parse_input(input);
+
+    // Translate so one passes through the origin to simplify equations
+    let (first_pos, first_velocity) = &hailstones[0];
+    let translated_hailstones = hailstones[1..]
+        .iter()
+        .map(|h| {
+            let (pos, velocity) = h;
+            (
+                vec![
+                    pos[0] - first_pos[0],
+                    pos[1] - first_pos[1],
+                    pos[2] - first_pos[2],
+                ],
+                vec![
+                    velocity[0] - first_velocity[0],
+                    velocity[1] - first_velocity[1],
+                    velocity[2] - first_velocity[2],
+                ],
+            )
+        })
+        .collect::<Vec<_>>();
+
+    // Find the plane between the origin and the line of the first hailstone
+    // Rock's trajectory will be on that plane
+
+    // First vector = velocity of the next hailstone
+    // Second vector = origin and any point on the line (just use the starting point)
+    // Plane = cross product
+    let (next_hailstone_pos, next_hailstone_velocity) = &translated_hailstones[0];
+    let (x1, y1, z1) = (
+        next_hailstone_velocity[0],
+        next_hailstone_velocity[1],
+        next_hailstone_velocity[2],
+    );
+    let (x2, y2, z2) = (
+        next_hailstone_pos[0],
+        next_hailstone_pos[1],
+        next_hailstone_pos[2],
+    );
+    // cross product to get normal vector
+    let (cp_x, cp_y, cp_z) = (y1 * z2 - z1 * y2, z1 * x2 - z1 * z2, x1 * y2 - y1 * x2);
+
+    // plane = cp_x * x + cp_y * y + cp_z * z (using origin as a point on the plane), for a point (x, y, z)
+    println!("plane = {}x + {}y + {}z = 0", cp_x, cp_y, cp_z);
+
+    // Find intersection between hailstone 3 with the plane and use
+    // this to determine the trajectory of the rock
+    // intersection: (p.x + v.x * t, p.y + v.y * t, p.z + v.z * t)
+    // cp_x * p.x + cp_y * p.y + cp_z * p.z + t * (cp_x * v.x + cp_y * v.y + cp_z * v.z)
+    // t = -(cp_x * p.x + cp_y * p.y + cp_z * p.z) / (cp_x * v.x + cp_y * v.y + cp_z * v.z)
+    let (p, v) = &translated_hailstones[1];
+    let t3 = -(cp_x * p[0] + cp_y * p[1] + cp_z * p[2]) / (cp_x * v[0] + cp_y * v[1] + cp_z * v[2]);
+    let intersection_3 = vec![p[0] + v[0] * t3, p[1] + v[1] * t3, p[2] + v[2] * t3];
+    // calculate time for the previous hailstone
+    let (p, v) = &translated_hailstones[0];
+    let t2 = -(cp_x * p[0] + cp_y * p[1] + cp_z * p[2]) / (cp_x * v[0] + cp_y * v[1] + cp_z * v[2]);
+    let intersection_2 = vec![p[0] + v[0] * t2, p[1] + v[1] * t2, p[2] + v[2] * t2];
+
+    let dt = t3 - t2;
+    let v = vec![
+        (intersection_3[0] - intersection_2[0]) / dt,
+        (intersection_3[1] - intersection_2[1]) / dt,
+        (intersection_3[2] - intersection_2[2]) / dt,
+    ];
+
+    println!(
+        "Intersection points {:?} and {:?} gives vector {:?}",
+        intersection_2, intersection_3, v
+    );
+
+    // Rock line will be:
+    // x = start.x + v.x * t
+    // y = start.y + v.y * t
+    // z = start.z + v.z * t
+    // therefore:
+    // start.x = x - v.x * t
+    // start.y = y - v.y * t
+    // start.z = z - v.z * t
+    let start = vec![
+        intersection_2[0] - v[0] * t2,
+        intersection_2[1] - v[1] * t2,
+        intersection_2[2] - v[2] * t2,
+    ];
+
+    println!("Start is {:?}", start);
+
+    // Put back into original frame of reference
+    let start = vec![
+        start[0] + first_pos[0],
+        start[1] + first_pos[1],
+        start[2] + first_pos[2],
+    ];
+
+    println!("Start in original frame of reference {:?}", start);
+
+    Some(start[0] + start[1] + start[2])
 }
 
 fn parse_input(input: &str) -> Vec<(Vec<i128>, Vec<i128>)> {
@@ -200,6 +296,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(47));
     }
 }
