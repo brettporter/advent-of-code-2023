@@ -67,7 +67,7 @@ pub fn part_two(input: &str) -> Option<i128> {
         next_hailstone_pos[2],
     );
     // cross product to get normal vector
-    let (cp_x, cp_y, cp_z) = (y1 * z2 - z1 * y2, z1 * x2 - z1 * z2, x1 * y2 - y1 * x2);
+    let (cp_x, cp_y, cp_z) = (y1 * z2 - z1 * y2, z1 * x2 - x1 * z2, x1 * y2 - y1 * x2);
 
     // plane = cp_x * x + cp_y * y + cp_z * z (using origin as a point on the plane), for a point (x, y, z)
     println!("plane = {}x + {}y + {}z = 0", cp_x, cp_y, cp_z);
@@ -81,7 +81,7 @@ pub fn part_two(input: &str) -> Option<i128> {
     let t3 = -(cp_x * p[0] + cp_y * p[1] + cp_z * p[2]) / (cp_x * v[0] + cp_y * v[1] + cp_z * v[2]);
     let intersection_3 = vec![p[0] + v[0] * t3, p[1] + v[1] * t3, p[2] + v[2] * t3];
     // calculate time for the previous hailstone
-    let (p, v) = &translated_hailstones[0];
+    let (p, v) = &translated_hailstones[2];
     let t2 = -(cp_x * p[0] + cp_y * p[1] + cp_z * p[2]) / (cp_x * v[0] + cp_y * v[1] + cp_z * v[2]);
     let intersection_2 = vec![p[0] + v[0] * t2, p[1] + v[1] * t2, p[2] + v[2] * t2];
 
