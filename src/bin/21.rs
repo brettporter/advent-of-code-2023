@@ -22,16 +22,27 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
         }
     }
 
+    // Build a list of locations that could be visited, beginning at the start point
     let mut locations = FxHashSet::default();
+    locations.insert(start.unwrap());
 
+    // If we get to 7x7 gardens for part two, we know the pattern of the input that can be used
+    // to infer the answer
     const GARDEN_SIZE: usize = 7;
 
-    locations.insert(start.unwrap());
+    // Iterate through all the required steps, but abort when we reach a conssistent pattern
     for _ in 0..num_steps {
+        // Replace the current locations with a new set as we'll  change to the surrounding
         let mut new_locations = FxHashSet::default();
         let mut done = false;
         for (x, y) in locations {
-            // Left
+            // We use rem_euclid to determine the relative position within the original grid since
+            // it is infinitely repeating outwards
+
+            // Check each direction and if no rock there, then add a new possible location
+            // If we've reached the edge of the 7x7 grid, mark as done
+
+            // Check left (x - 1, y)
             if grid[y.rem_euclid(size as i32) as usize][(x - 1).rem_euclid(size as i32) as usize]
                 == 0
             {
@@ -40,7 +51,7 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
                     done = true;
                 }
             }
-            // Up
+            // Check up (x, y - 1)
             if grid[(y - 1).rem_euclid(size as i32) as usize][x.rem_euclid(size as i32) as usize]
                 == 0
             {
@@ -49,7 +60,7 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
                     done = true;
                 }
             }
-            // Right
+            // Check right (x + 1, y)
             if grid[y.rem_euclid(size as i32) as usize][(x + 1).rem_euclid(size as i32) as usize]
                 == 0
             {
@@ -58,7 +69,7 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
                     done = true;
                 }
             }
-            // Down
+            // Check down (x, y + 1)
             if grid[(y + 1).rem_euclid(size as i32) as usize][x.rem_euclid(size as i32) as usize]
                 == 0
             {
@@ -68,8 +79,12 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
                 }
             }
         }
+        // Use the new set of locations for the next iteration
         locations = new_locations;
+
+        // Check if we found the 7x7 boundary and can repeat from there
         if done {
+            // Count the number of locations in each of the repeated gardens
             let mut garden_count = vec![vec![0; GARDEN_SIZE as usize]; GARDEN_SIZE as usize];
             let offset = size as i32 * (GARDEN_SIZE / 2) as i32;
             for y in 0..size * GARDEN_SIZE {
@@ -80,28 +95,49 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
                 }
             }
 
-            // TODO: assumption here of constant being the right one
+            // n is the number of full gardens we need to traverse to get the eventual answer
+            // Pattern of 7x7 repeats, which looks like
+            // . . A B a . .
+            // . A D E d a .
+            // A D E e E d a
+            // F E e E e E f
+            // G H E e E h g
+            // . G H E h g .
+            // . . G b g . .
+            // E and e will alternate internally and expand as gardens are filled, with the same numbers
+            // on the boundaries at each full interval
+            // So for 7x7, n is 3
+            // The total number is the sum of the gardens. There will be:
+            //            n of A, a, G, g along the boundary
+            //      (n - 1) of D, d, H, h along the inside of the boundary that are not yet full
+            //       single of F, f, B, b at the points of the diamond
+            //        n ^ 2 of E the area of the inner diamond (odd distances)
+            //  (n - 1) ^ 2 of e the area of the inner diamond (even distances)
+
             let n = num_steps as usize / size;
             let total = n
-                * (garden_count[1][1]
-                    + garden_count[5][1]
-                    + garden_count[1][5]
-                    + garden_count[5][5])
+                * (garden_count[1][1] // A
+                    + garden_count[5][1] // a
+                    + garden_count[1][5] // G
+                    + garden_count[5][5]) // g
                 + (n - 1)
-                    * (garden_count[1][2]
-                        + garden_count[1][4]
-                        + garden_count[5][2]
-                        + garden_count[5][4])
-                + garden_count[0][3]
-                + garden_count[3][0]
-                + garden_count[3][6]
-                + garden_count[6][3]
-                + n * n * garden_count[1][3]
-                + (n - 1) * (n - 1) * garden_count[2][3];
+                    * (garden_count[1][2] // D
+                        + garden_count[1][4] // d
+                        + garden_count[5][2] // H
+                        + garden_count[5][4]) // h
+                + garden_count[0][3] // F
+                + garden_count[6][3] // f
+                + garden_count[3][0] // B
+                + garden_count[3][6] // b
+                + n * n * garden_count[1][3] // E
+                + (n - 1) * (n - 1) * garden_count[2][3]; // e
+
+            // Abort early with this total
             return Some(total);
         }
     }
 
+    // Return the total reached
     Some(locations.len())
 }
 
@@ -153,6 +189,8 @@ mod tests {
         assert_eq!(result, Some(16));
         let result = count_destinations(&advent_of_code::template::read_file("examples", DAY), 10);
         assert_eq!(result, Some(50));
+
+        // TODO: the current approach works for the input data, but not for the examples because the number of steps do not exactly match the interval
         // let result = count_destinations(&advent_of_code::template::read_file("examples", DAY), 50);
         // assert_eq!(result, Some(1594));
         // let result = count_destinations(&advent_of_code::template::read_file("examples", DAY), 100);
