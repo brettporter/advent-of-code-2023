@@ -11,7 +11,10 @@ struct Point {
     z: i32,
 }
 
+// Dimensions of the x, y grid
 const SIZE: i32 = 10;
+
+// Possible height of bricks in the grid
 const Z_SIZE: i32 = 1000;
 
 impl Point {
@@ -69,37 +72,46 @@ impl Brick {
     }
 
     fn move_down(&mut self) {
+        // Move every cube down one square
         for c in self.cubes.iter_mut() {
+            // z == 0 is the ground
             assert!(c.z > 1);
             c.z -= 1;
         }
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum GridState {
+    Empty,
+    Brick(usize),
+    Ground,
+}
+
 pub fn create_structure(input: &str) -> Vec<Vec<usize>> {
     let mut bricks = parse_input(input);
 
-    const GROUND: usize = usize::MAX;
-
     // Populate a 3D grid
-    let mut grid_state = [[[None; SIZE as usize]; SIZE as usize]; Z_SIZE as usize];
+    let mut grid_state = [[[GridState::Empty; SIZE as usize]; SIZE as usize]; Z_SIZE as usize];
     // populate ground
     for y in 0..SIZE {
         for x in 0..SIZE {
-            grid_state[0][y as usize][x as usize] = Some(GROUND);
+            grid_state[0][y as usize][x as usize] = GridState::Ground;
         }
     }
 
     // populate bricks in initial state
     for brick in bricks.iter() {
         for c in &brick.cubes {
-            assert!(grid_state[c.z as usize][c.y as usize][c.x as usize] == None);
-            grid_state[c.z as usize][c.y as usize][c.x as usize] = Some(brick.id);
+            assert_eq!(
+                grid_state[c.z as usize][c.y as usize][c.x as usize],
+                GridState::Empty
+            );
+            grid_state[c.z as usize][c.y as usize][c.x as usize] = GridState::Brick(brick.id);
         }
     }
 
     // Move all bricks as far down as they can fall before being obstructed
-    // TODO: possible optimisation - move each brick all the way to the bottom in one go
     let mut done = false;
     while !done {
         done = true;
@@ -109,18 +121,19 @@ pub fn create_structure(input: &str) -> Vec<Vec<usize>> {
             // this brick
             let can_move = brick.cubes.iter().all(|c| {
                 let state = grid_state[c.z as usize - 1][c.y as usize][c.x as usize];
-                state == None || state == Some(brick.id)
+                state == GridState::Empty || state == GridState::Brick(brick.id)
             });
             if can_move {
                 // if this brick could move, flag that we need to start the loop again
                 done = false;
                 // erase the brick, move it, then draw again
                 for c in &brick.cubes {
-                    grid_state[c.z as usize][c.y as usize][c.x as usize] = None;
+                    grid_state[c.z as usize][c.y as usize][c.x as usize] = GridState::Empty;
                 }
                 brick.move_down();
                 for c in &brick.cubes {
-                    grid_state[c.z as usize][c.y as usize][c.x as usize] = Some(brick.id);
+                    grid_state[c.z as usize][c.y as usize][c.x as usize] =
+                        GridState::Brick(brick.id);
                 }
             }
         }
@@ -135,8 +148,17 @@ pub fn create_structure(input: &str) -> Vec<Vec<usize>> {
                 .cubes
                 .iter()
                 .map(|c| grid_state[c.z as usize - 1][c.y as usize][c.x as usize])
-                .filter(|&c| c != None && c != Some(GROUND) && c != Some(brick.id))
-                .map(|c| c.unwrap())
+                .filter_map(|c| {
+                    if let GridState::Brick(id) = c {
+                        if id != brick.id {
+                            Some(id)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
                 .unique()
                 .collect::<Vec<_>>()
         })
