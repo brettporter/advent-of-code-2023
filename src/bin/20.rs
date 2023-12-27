@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use nom::{
     bytes::complete::tag,
@@ -10,6 +10,7 @@ use nom::{
     IResult,
 };
 use num::Integer;
+use rustc_hash::FxHashMap;
 
 advent_of_code::solution!(20);
 
@@ -68,12 +69,12 @@ fn setup_machine(
     input: &str,
 ) -> (
     Vec<Module>,
-    HashMap<String, usize>,
+    FxHashMap<String, usize>,
     Vec<Vec<usize>>,
     Vec<u64>,
 ) {
     let modules = parse(input);
-    let module_lookup = HashMap::<_, _>::from_iter(
+    let module_lookup = FxHashMap::<_, _>::from_iter(
         modules
             .iter()
             .enumerate()
@@ -99,7 +100,7 @@ fn setup_machine(
 fn push_button<F>(
     state: &mut Vec<u64>,
     modules: &Vec<Module>,
-    module_lookup: &HashMap<String, usize>,
+    module_lookup: &FxHashMap<String, usize>,
     module_inputs: &Vec<Vec<usize>>,
     check_gate: &mut F,
 ) where
@@ -182,7 +183,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(low_total * high_total)
 }
 
-fn _print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut HashMap<u64, u16>) {
+fn _print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut FxHashMap<u64, u16>) {
     for (i, v) in state.iter().enumerate() {
         if modules[i].mod_type == ModuleType::CONJUNCTION {
             let next = value_keys.len() as u16;
@@ -213,7 +214,7 @@ pub fn part_two(input: &str) -> Option<usize> {
         .filter_map(|m| m.cables.contains(&start.name).then_some(m.name.to_owned()))
         .collect::<Vec<_>>();
 
-    let mut gate_cycles = HashMap::new();
+    let mut gate_cycles = FxHashMap::default();
     let mut gates_cycled = 0;
     let mut step = 1;
     while gates_cycled < gates.len() {
