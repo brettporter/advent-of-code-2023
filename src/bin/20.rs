@@ -96,16 +96,16 @@ fn setup_machine(
     (modules, module_lookup, module_inputs, state)
 }
 
-fn push_button(
-    step: usize,
+fn push_button<F>(
     state: &mut Vec<u64>,
     modules: &Vec<Module>,
     module_lookup: &HashMap<String, usize>,
     module_inputs: &Vec<Vec<usize>>,
-    gate_cycles: &mut HashMap<String, usize>,
-) -> (u32, u32) {
+    check_gate: &mut F,
+) where
+    F: FnMut(&Module, Pulse),
+{
     let mut queue = VecDeque::new();
-    let (mut low, mut high) = (1, 0);
 
     // push the button
     queue.push_back((Pulse::LOW, usize::MAX, module_lookup["broadcaster"]));
@@ -148,16 +148,8 @@ fn push_button(
             }
             ModuleType::BROADCASTER => Some(pulse),
         } {
-            match send {
-                Pulse::LOW => low += module.cables.len() as u32,
-                Pulse::HIGH => high += module.cables.len() as u32,
-            }
-            // TODO: closure would be nicer
-            if module.mod_type == ModuleType::CONJUNCTION && send == Pulse::HIGH {
-                if !gate_cycles.contains_key(&module.name) {
-                    gate_cycles.insert(module.name.clone(), step);
-                }
-            }
+            check_gate(module, send);
+
             for c in &module.cables {
                 // Unknown labels can be ignored (e.g. output)
                 if let Some(&dest_idx) = module_lookup.get(c) {
@@ -166,7 +158,6 @@ fn push_button(
             }
         }
     }
-    (low, high)
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -174,20 +165,18 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let (mut low_total, mut high_total) = (0, 0);
 
-    let mut dummy = HashMap::new();
-    for i in 0..1000 {
-        // TODO: memoise state? detect cycle for low/high increases?
-        let (low, high) = push_button(
-            i,
+    for _ in 0..1000 {
+        low_total += 1; // add one for the button
+        push_button(
             &mut state,
             &modules,
             &module_lookup,
             &module_inputs,
-            &mut dummy,
+            &mut |module, send| match send {
+                Pulse::LOW => low_total += module.cables.len() as u32,
+                Pulse::HIGH => high_total += module.cables.len() as u32,
+            },
         );
-
-        low_total += low;
-        high_total += high;
     }
 
     Some(low_total * high_total)
@@ -221,20 +210,28 @@ pub fn part_two(input: &str) -> Option<usize> {
     // Looking for cycle when all these send high at the same time
     let gates = modules
         .iter()
-        .filter(|m| m.cables.contains(&start.name))
+        .filter_map(|m| m.cables.contains(&start.name).then_some(m.name.to_owned()))
         .collect::<Vec<_>>();
-    assert!(gates.iter().all(|m| m.mod_type == ModuleType::CONJUNCTION));
 
     let mut gate_cycles = HashMap::new();
+    let mut gates_cycled = 0;
     let mut step = 1;
-    while !gates.iter().all(|g| gate_cycles.contains_key(&g.name)) {
+    while gates_cycled < gates.len() {
         push_button(
-            step,
             &mut state,
             &modules,
             &module_lookup,
             &module_inputs,
-            &mut gate_cycles,
+            &mut |module, send| {
+                if module.mod_type == ModuleType::CONJUNCTION && send == Pulse::HIGH {
+                    if !gate_cycles.contains_key(&module.name) {
+                        gate_cycles.insert(module.name.clone(), step);
+                        if gates.contains(&module.name) {
+                            gates_cycled += 1;
+                        }
+                    }
+                }
+            },
         );
         step += 1;
     }
