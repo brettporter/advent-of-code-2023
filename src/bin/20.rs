@@ -65,96 +65,109 @@ fn parse(input: &str) -> Vec<Module> {
     mappings
 }
 
-fn setup_machine(
-    input: &str,
-) -> (
-    Vec<Module>,
-    FxHashMap<String, usize>,
-    Vec<Vec<usize>>,
-    Vec<u64>,
-) {
-    let modules = parse(input);
-    let module_lookup = FxHashMap::<_, _>::from_iter(
-        modules
-            .iter()
-            .enumerate()
-            .map(|(i, v)| (v.name.to_owned(), i)),
-    );
-
-    // The list of inputs to each module
-    let module_inputs: Vec<_> = modules
-        .iter()
-        .map(|m| {
-            modules
-                .iter()
-                .filter_map(|v| v.cables.contains(&m.name).then_some(module_lookup[&v.name]))
-                .collect::<Vec<_>>()
-        })
-        .collect();
-
-    // 0/1 = on/off (flipflop), bitmask of connected modules low/high (conjunction)
-    let state = vec![0; modules.len()];
-    (modules, module_lookup, module_inputs, state)
+struct Machine {
+    modules: Vec<Module>,
+    module_lookup: FxHashMap<String, usize>,
+    module_inputs: Vec<Vec<usize>>,
+    state: Vec<u64>,
 }
 
-fn push_button<F>(
-    state: &mut Vec<u64>,
-    modules: &Vec<Module>,
-    module_lookup: &FxHashMap<String, usize>,
-    module_inputs: &Vec<Vec<usize>>,
-    check_gate: &mut F,
-) where
-    F: FnMut(&Module, Pulse),
-{
-    let mut queue = VecDeque::new();
+impl Machine {
+    fn setup(input: &str) -> Self {
+        let modules = parse(input);
 
-    // push the button
-    queue.push_back((Pulse::LOW, usize::MAX, module_lookup["broadcaster"]));
+        // Map module names to index number, so we can reference modules by index rather than name
+        let module_lookup = FxHashMap::<_, _>::from_iter(
+            modules
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (v.name.to_owned(), i)),
+        );
 
-    while let Some((pulse, from_idx, idx)) = queue.pop_front() {
-        let module = &modules[idx];
-        if let Some(send) = match module.mod_type {
-            ModuleType::FLIPFLOP => {
-                // Ignore high
-                if pulse == Pulse::LOW {
-                    // Toggle
-                    state[idx] = 1 - state[idx];
-                    Some(match state[idx] {
-                        0 => Pulse::LOW,
-                        1 => Pulse::HIGH,
-                        _ => panic!(),
-                    })
-                } else {
-                    None
-                }
-            }
-            ModuleType::CONJUNCTION => {
-                // update memory for that input. First clear bit, then set if high.
-                // TODO: unit test - part 1 passes if this is wrong but input doesn't
-                state[idx] &= !(1 << from_idx);
-                if pulse == Pulse::HIGH {
-                    state[idx] |= 1 << from_idx;
-                }
+        // The list of inputs to each module
+        // Map the destination module to the index of the source module
+        let module_inputs = modules
+            .iter()
+            .map(|m| {
+                modules
+                    .iter()
+                    .filter_map(|v| v.cables.contains(&m.name).then_some(module_lookup[&v.name]))
+                    .collect()
+            })
+            .collect();
 
-                Some(
-                    if module_inputs[idx]
-                        .iter()
-                        .all(|x| state[idx] & (1 << x) != 0)
-                    {
-                        Pulse::LOW
+        // State will be 0/1 = on/off (flipflop), bitmask of connected modules low/high as 0/1 (conjunction)
+        let state = vec![0; modules.len()];
+
+        Self {
+            modules,
+            module_lookup,
+            module_inputs,
+            state,
+        }
+    }
+
+    fn push_button<F>(&mut self, emit_pulses: &mut F)
+    where
+        F: FnMut(&Module, Pulse),
+    {
+        // Pulses still to process for this step. Contains the pulse, from module (index), to module (index)
+        let mut queue = VecDeque::new();
+
+        // push the button, send a low pulse to the broadcaster
+        queue.push_back((Pulse::LOW, usize::MAX, self.module_lookup["broadcaster"]));
+
+        // Process any pulses still remaining in this step
+        while let Some((pulse, from_idx, idx)) = queue.pop_front() {
+            let module = &self.modules[idx];
+            if let Some(send) = match module.mod_type {
+                ModuleType::FLIPFLOP => {
+                    if pulse == Pulse::LOW {
+                        // Toggle state
+                        self.state[idx] = 1 - self.state[idx];
+                        // Return the new state as a pulse to send on
+                        Some(match self.state[idx] {
+                            0 => Pulse::LOW,
+                            1 => Pulse::HIGH,
+                            _ => unreachable!(),
+                        })
                     } else {
-                        Pulse::HIGH
-                    },
-                )
-            }
-            ModuleType::BROADCASTER => Some(pulse),
-        } {
-            check_gate(module, send);
+                        // Ignore high pulses to flipflop - no pulse
+                        None
+                    }
+                }
+                ModuleType::CONJUNCTION => {
+                    // update memory for that input. First clear bit, then set if high.
+                    self.state[idx] &= !(1 << from_idx);
+                    if pulse == Pulse::HIGH {
+                        self.state[idx] |= 1 << from_idx;
+                    }
 
-            for c in &module.cables {
-                // Unknown labels can be ignored (e.g. output)
-                if let Some(&dest_idx) = module_lookup.get(c) {
-                    queue.push_back((send, idx, dest_idx));
+                    // If all inputs remember high (set to 1), send a low pulse, otherwise send high
+                    Some(
+                        if self.module_inputs[idx]
+                            .iter()
+                            .all(|x| self.state[idx] & (1 << x) != 0)
+                        {
+                            Pulse::LOW
+                        } else {
+                            Pulse::HIGH
+                        },
+                    )
+                }
+                // Passthrough
+                ModuleType::BROADCASTER => Some(pulse),
+            } {
+                // Emit a pulses from this module to each of the cables
+                emit_pulses(module, send);
+
+                // Emit pulse to each of the destination modules
+                for c in &module.cables {
+                    // Unknown labels (e.g. output) do not need to be processed further
+                    if let Some(&dest_idx) = self.module_lookup.get(c) {
+                        // Add to queue to process from this module to the destination
+                        queue.push_back((send, idx, dest_idx));
+                    }
                 }
             }
         }
@@ -162,22 +175,16 @@ fn push_button<F>(
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
-    let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
+    let mut machine = Machine::setup(input);
 
     let (mut low_total, mut high_total) = (0, 0);
 
     for _ in 0..1000 {
-        low_total += 1; // add one for the button
-        push_button(
-            &mut state,
-            &modules,
-            &module_lookup,
-            &module_inputs,
-            &mut |module, send| match send {
-                Pulse::LOW => low_total += module.cables.len() as u32,
-                Pulse::HIGH => high_total += module.cables.len() as u32,
-            },
-        );
+        low_total += 1; // add one for the button push
+        machine.push_button(&mut |module, send| match send {
+            Pulse::LOW => low_total += module.cables.len() as u32,
+            Pulse::HIGH => high_total += module.cables.len() as u32,
+        });
     }
 
     Some(low_total * high_total)
@@ -197,11 +204,12 @@ fn _print_state(state: &Vec<u64>, modules: &Vec<Module>, value_keys: &mut FxHash
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    let (modules, module_lookup, module_inputs, mut state) = setup_machine(input);
+    let mut machine = Machine::setup(input);
 
     // Examined input, found one conjunction in front of rx
     // To send low to rx, this gate must get high from all inputs
-    let start = modules
+    let start = machine
+        .modules
         .iter()
         .find(|m| m.cables.contains(&"rx".to_string()))
         .unwrap();
@@ -209,34 +217,33 @@ pub fn part_two(input: &str) -> Option<usize> {
 
     // Get the conjunctions that are in front of the above
     // Looking for cycle when all these send high at the same time
-    let gates = modules
+    let gates = machine
+        .modules
         .iter()
         .filter_map(|m| m.cables.contains(&start.name).then_some(m.name.to_owned()))
         .collect::<Vec<_>>();
 
+    // Find the first cycle length for each of the listed gates
+    // Note we have an assumption that they have a consistent cycle from 0 based on the input
     let mut gate_cycles = FxHashMap::default();
     let mut gates_cycled = 0;
     let mut step = 1;
     while gates_cycled < gates.len() {
-        push_button(
-            &mut state,
-            &modules,
-            &module_lookup,
-            &module_inputs,
-            &mut |module, send| {
-                if module.mod_type == ModuleType::CONJUNCTION && send == Pulse::HIGH {
-                    if !gate_cycles.contains_key(&module.name) {
-                        gate_cycles.insert(module.name.clone(), step);
-                        if gates.contains(&module.name) {
-                            gates_cycled += 1;
-                        }
+        machine.push_button(&mut |module, send| {
+            if module.mod_type == ModuleType::CONJUNCTION && send == Pulse::HIGH {
+                if !gate_cycles.contains_key(&module.name) {
+                    gate_cycles.insert(module.name.clone(), step);
+                    if gates.contains(&module.name) {
+                        gates_cycled += 1;
                     }
                 }
-            },
-        );
+            }
+        });
         step += 1;
     }
 
+    // Calculate the LCM of all the cycle lengths to determine when all of those gates will be HIGH
+    // simultaneously, which will result in LOW to rx
     gate_cycles
         .values()
         .map(|v| *v)
