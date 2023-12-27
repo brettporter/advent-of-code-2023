@@ -5,70 +5,26 @@ use rustc_hash::FxHashSet;
 
 advent_of_code::solution!(23);
 
-pub fn part_one(input: &str) -> Option<usize> {
-    let grid = input
-        .trim()
-        .split("\n")
-        .map(|line| line.chars().collect_vec())
-        .collect_vec();
-
-    let (w, h) = (grid[0].len(), grid.len());
-    let start = (1, 0);
-    let dest = (w - 2, h - 1);
-
-    let visited = FxHashSet::default();
-
-    let mut valid_paths = Vec::new();
-    let mut queue = VecDeque::new();
-    queue.push_back((start, visited));
-
-    // TODO: alternative could be to just search for junction points and search tree
-    while let Some(((x, y), visited)) = queue.pop_front() {
-        let mut visited = visited.clone();
-        visited.insert((x, y));
-        if (x, y) == dest {
-            valid_paths.push(visited);
-            continue;
-        }
-
-        // left
-        if x > 0 {
-            if grid[y][x - 1] == '.' || grid[y][x - 1] == '<' {
-                if !visited.contains(&(x - 1, y)) {
-                    queue.push_back(((x - 1, y), visited.clone()));
-                }
-            }
-        }
-        // right
-        if x < w - 1 {
-            if grid[y][x + 1] == '.' || grid[y][x + 1] == '>' {
-                if !visited.contains(&(x + 1, y)) {
-                    queue.push_back(((x + 1, y), visited.clone()));
-                }
-            }
-        }
-        // up
-        if y > 0 {
-            if grid[y - 1][x] == '.' || grid[y - 1][x] == '^' {
-                if !visited.contains(&(x, y - 1)) {
-                    queue.push_back(((x, y - 1), visited.clone()));
-                }
-            }
-        }
-        // down
-        if y < h - 1 {
-            if grid[y + 1][x] == '.' || grid[y + 1][x] == 'v' {
-                if !visited.contains(&(x, y + 1)) {
-                    queue.push_back(((x, y + 1), visited.clone()));
-                }
-            }
-        }
-    }
-
-    valid_paths.iter().map(|p| p.len() - 1).max()
+struct Junction {
+    x: usize,
+    y: usize,
+    from: (usize, usize),
+    distance: i32,
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
+impl Junction {
+    fn new(to: (usize, usize), from: (usize, usize), distance: i32) -> Self {
+        let (x, y) = to;
+        Self {
+            x,
+            y,
+            from,
+            distance,
+        }
+    }
+}
+
+fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
     let grid = input
         .trim()
         .split("\n")
@@ -83,50 +39,40 @@ pub fn part_two(input: &str) -> Option<i32> {
 
     let mut valid_paths = Vec::new();
     let mut queue = VecDeque::new();
-    queue.push_back((start, start, 0, visited));
+    queue.push_back((Junction::new(start, start, 0), visited));
 
-    let mut max_Distance = 0;
+    let mut max_distance = 0;
 
-    // TODO: alternative could be to just search for junction points and search tree
-    while let Some(((x, y), from, total_distance, visited)) = queue.pop_front() {
-        // println!("Following path from junction {} {}", x, y);
-        if (x, y) == dest {
-            if total_distance - 1 > max_Distance {
-                println!(
-                    "Found dest {} - remaining {}",
-                    total_distance - 1,
-                    queue.len()
-                );
-                max_Distance = total_distance - 1;
-            }
-            valid_paths.push(total_distance - 1);
-            continue;
-        }
-
-        let mut from = from;
-        let mut cur = (x, y);
+    // Traverse remaining junction points that haven't been visited on this path
+    // TODO: alternative could be to just search for junction points and search tree?
+    while let Some((junction, visited)) = queue.pop_front() {
+        let mut from = junction.from;
+        let mut cur = (junction.x, junction.y);
         let mut distance = 0;
 
         loop {
             distance += 1;
-            let (x, y) = cur;
-            if (x, y) == dest {
-                if distance + total_distance - 1 > max_Distance {
+            if cur == dest {
+                if distance + junction.distance > max_distance {
+                    // TODO: remove debug once it's fast enough not to need to know
                     println!(
-                        "Found dest {} - remaining {}",
-                        distance + total_distance - 1,
+                        "Found dest {} - still to process alternatives: {}",
+                        distance + junction.distance,
                         queue.len()
                     );
-                    max_Distance = distance + total_distance - 1;
+                    max_distance = distance + junction.distance;
                 }
-                valid_paths.push(distance + total_distance - 1);
+                valid_paths.push(distance + junction.distance);
                 break;
             }
+
+            let (x, y) = cur;
 
             let mut choices = Vec::new();
             // left
             if x > 0 {
-                if grid[y][x - 1] != '#' {
+                let v = grid[y][x - 1];
+                if (!slippery && v != '#') || v == '.' || v == '<' {
                     if from != (x - 1, y) {
                         choices.push((x - 1, y));
                     }
@@ -134,7 +80,8 @@ pub fn part_two(input: &str) -> Option<i32> {
             }
             // right
             if x < w - 1 {
-                if grid[y][x + 1] != '#' {
+                let v = grid[y][x + 1];
+                if (!slippery && v != '#') || v == '.' || v == '>' {
                     if from != (x + 1, y) {
                         choices.push((x + 1, y));
                     }
@@ -142,7 +89,8 @@ pub fn part_two(input: &str) -> Option<i32> {
             }
             // up
             if y > 0 {
-                if grid[y - 1][x] != '#' {
+                let v = grid[y - 1][x];
+                if (!slippery && v != '#') || v == '.' || v == '^' {
                     if from != (x, y - 1) {
                         choices.push((x, y - 1));
                     }
@@ -150,38 +98,49 @@ pub fn part_two(input: &str) -> Option<i32> {
             }
             // down
             if y < h - 1 {
-                if grid[y + 1][x] != '#' {
+                let v = grid[y + 1][x];
+                if (!slippery && v != '#') || v == '.' || v == 'v' {
                     if from != (x, y + 1) {
                         choices.push((x, y + 1));
                     }
                 }
             }
 
+            // Dead end - stop looking for a junction on this route
             if choices.len() == 0 {
                 break;
             }
+
+            // Only one choice - continue path as not at a junction
             if choices.len() == 1 {
                 from = (x, y);
                 cur = *choices.first().unwrap();
-                continue;
-            }
-
-            // Junction point
-            // println!("Found junction {} {} -> {:?}", x, y, choices);
-            if visited.contains(&(x, y)) {
+                if visited.contains(&cur) {
+                    break;
+                }
+            } else {
+                // Reached a junction point - add the choices to the queue of paths to explore
+                for n in choices {
+                    // Take a copy of the visited set including the junction for each path
+                    let mut visited = visited.clone();
+                    visited.insert(cur);
+                    queue.push_back((Junction::new(n, cur, junction.distance + distance), visited));
+                }
+                // Hand back to the main loop to process these options
                 break;
             }
-
-            let mut visited = visited.clone();
-            visited.insert((x, y));
-            for n in choices {
-                queue.push_back((n, (x, y), total_distance + distance, visited.clone()));
-            }
-            break;
         }
     }
 
-    Some(*valid_paths.iter().max().unwrap() as i32)
+    Some(valid_paths.into_iter().max().unwrap() - 1)
+}
+
+pub fn part_one(input: &str) -> Option<i32> {
+    traverse_grid(input, true)
+}
+
+pub fn part_two(input: &str) -> Option<i32> {
+    traverse_grid(input, false)
 }
 
 #[cfg(test)]
