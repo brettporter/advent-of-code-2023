@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use rustc_hash::FxHashSet;
 
 advent_of_code::solution!(21);
 
@@ -7,6 +7,7 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
     let size = lines.len();
     assert_eq!(lines[0].len(), size);
 
+    // Build initial grid from the input
     let mut grid = vec![vec![0; size]; size];
     let mut start = None;
 
@@ -21,13 +22,13 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
         }
     }
 
-    let mut locations = HashSet::new();
+    let mut locations = FxHashSet::default();
 
     const GARDEN_SIZE: usize = 7;
 
     locations.insert(start.unwrap());
     for _ in 0..num_steps {
-        let mut new_locations = HashSet::new();
+        let mut new_locations = FxHashSet::default();
         let mut done = false;
         for (x, y) in locations {
             // Left
@@ -104,7 +105,7 @@ fn count_destinations(input: &str, num_steps: u32) -> Option<usize> {
     Some(locations.len())
 }
 
-fn _print_locations(locations: &HashSet<(i32, i32)>, grid: &Vec<Vec<i32>>) {
+fn _print_locations(locations: &FxHashSet<(i32, i32)>, grid: &Vec<Vec<i32>>) {
     const GARDEN_SIZE: i32 = 3;
 
     let (w, h) = (grid[0].len() as i32, grid.len() as i32);
