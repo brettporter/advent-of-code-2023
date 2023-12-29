@@ -20,9 +20,6 @@ fn string_to_id(s: &str) -> u32 {
 pub fn part_one(input: &str) -> Option<u32> {
     let (_, connections) = parse_input(input).unwrap();
 
-    // Determine min cut with Karger's algorithm
-    // Alternative: Stoer–Wagner min cut algorithm - but this is not necessarily more efficient in unweighted graph
-
     // Graph represented as an adjacency list
     let mut graph = FxHashMap::default();
     for (from, _, to) in connections {
@@ -40,6 +37,8 @@ pub fn part_one(input: &str) -> Option<u32> {
             .or_insert(to_ids);
     }
 
+    // Determine min cut with Karger's algorithm
+    // Alternative: Stoer–Wagner min cut algorithm - but this is not necessarily more efficient in unweighted graph
     let mut rng = rand::thread_rng();
 
     loop {
@@ -84,10 +83,14 @@ pub fn part_one(input: &str) -> Option<u32> {
             // _check_graph_integrity(&contracted_graph, v);
         }
 
+        // When two vertices remain, edges between them is the number of cuts
         let (a, b) = contracted_graph.values().collect_tuple().unwrap();
-        assert_eq!(a.len(), b.len());
+        let cut = a.len();
+        assert_eq!(cut, b.len());
 
+        // As we know from the problem that the minimum is 3, we stop at this repetition
         if a.len() == 3 {
+            // get the count of vertices merged into each set, then multiply together
             return contracted_graph
                 .keys()
                 .map(|k| merged_vertices.get(k).unwrap_or(&vec![]).len() as u32 + 1)
@@ -97,6 +100,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 fn _check_graph_integrity(contracted_graph: &FxHashMap<u32, Vec<u32>>, v: u32) {
+    // Check that the adjacecy lists are being maintained correctly
     for (&key, value) in contracted_graph {
         assert!(key != v);
         assert!(!value.contains(&v), "{key} should not contain {v}");
