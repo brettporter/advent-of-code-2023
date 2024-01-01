@@ -1,27 +1,41 @@
 use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 advent_of_code::solution!(23);
 
-struct Junction {
-    x: usize,
-    y: usize,
-    from: (usize, usize),
-    distance: i32,
+// TODO: could we reuse from Day 17?
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+enum Direction {
+    Up,
+    Right,
+    Down,
+    Left,
 }
-
-impl Junction {
-    fn new(to: (usize, usize), from: (usize, usize), distance: i32) -> Self {
-        let (x, y) = to;
-        Self {
-            x,
-            y,
-            from,
-            distance,
+impl Direction {
+    fn translate(&self, junction: (usize, usize)) -> (usize, usize) {
+        let (x, y) = junction;
+        match self {
+            Self::Up => (x, y - 1),
+            Self::Down => (x, y + 1),
+            Self::Left => (x - 1, y),
+            Self::Right => (x + 1, y),
         }
     }
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
+struct Node {
+    loc: (usize, usize),
+    incoming_direction: Direction,
+}
+
+#[derive(Debug)]
+struct Edge {
+    from: Node,
+    to: Node,
+    distance: i32,
 }
 
 fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
@@ -32,76 +46,87 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         .collect_vec();
 
     let (w, h) = (grid[0].len(), grid.len());
-    let start = (1, 0);
-    let dest = (w - 2, h - 1);
+    let start = Node {
+        loc: (1, 0),
+        incoming_direction: Direction::Down,
+    };
+    let dest = Node {
+        loc: (w - 2, h - 1),
+        incoming_direction: Direction::Down,
+    };
 
-    let visited = FxHashSet::default();
-
-    let mut valid_paths = Vec::new();
+    // TODO: too much copying of nodes instead of references?
     let mut queue = VecDeque::new();
-    queue.push_back((Junction::new(start, start, 0), visited));
+    queue.push_back((start, Direction::Down));
 
-    let mut max_distance = 0;
+    // TODO: ignore direction if slippery, as it is inherently directed
 
-    // Traverse remaining junction points that haven't been visited on this path
-    // TODO: alternative could be to just search for junction points and search tree?
-    while let Some((junction, visited)) = queue.pop_front() {
-        let mut from = junction.from;
-        let mut cur = (junction.x, junction.y);
+    let mut nodes = FxHashSet::default();
+    nodes.insert(start);
+    nodes.insert(dest);
+
+    let mut edges = Vec::new(); // TODO: correct data structure?
+
+    // TODO: is it faster to pre-identify all the potential nodes based on graph and stop edges at all of these, even if fewer options in part 1?
+    // Traverse remaining junction points that haven't been discovered yet
+    while let Some((junction, next_direction)) = queue.pop_front() {
+        // move in the desired direction of this path
+        let mut loc = next_direction.translate(junction.loc);
+        let mut incoming_direction = next_direction;
+
         let mut distance = 0;
 
         loop {
             distance += 1;
-            if cur == dest {
-                if distance + junction.distance > max_distance {
-                    // TODO: remove debug once it's fast enough not to need to know
-                    println!(
-                        "Found dest {} - still to process alternatives: {}",
-                        distance + junction.distance,
-                        queue.len()
-                    );
-                    max_distance = distance + junction.distance;
-                }
-                valid_paths.push(distance + junction.distance);
+
+            if loc == dest.loc {
+                edges.push(Edge {
+                    from: junction,
+                    to: Node {
+                        loc,
+                        incoming_direction,
+                    },
+                    distance,
+                });
                 break;
             }
 
-            let (x, y) = cur;
+            let (x, y) = loc;
 
             let mut choices = Vec::new();
             // left
-            if x > 0 {
-                let v = grid[y][x - 1];
-                if (!slippery && v != '#') || v == '.' || v == '<' {
-                    if from != (x - 1, y) {
-                        choices.push((x - 1, y));
+            if incoming_direction != Direction::Right {
+                if x > 0 {
+                    let v = grid[y][x - 1];
+                    if (!slippery && v != '#') || v == '.' || v == '<' {
+                        choices.push(Direction::Left);
                     }
                 }
             }
             // right
-            if x < w - 1 {
-                let v = grid[y][x + 1];
-                if (!slippery && v != '#') || v == '.' || v == '>' {
-                    if from != (x + 1, y) {
-                        choices.push((x + 1, y));
+            if incoming_direction != Direction::Left {
+                if x < w - 1 {
+                    let v = grid[y][x + 1];
+                    if (!slippery && v != '#') || v == '.' || v == '>' {
+                        choices.push(Direction::Right);
                     }
                 }
             }
             // up
-            if y > 0 {
-                let v = grid[y - 1][x];
-                if (!slippery && v != '#') || v == '.' || v == '^' {
-                    if from != (x, y - 1) {
-                        choices.push((x, y - 1));
+            if incoming_direction != Direction::Down {
+                if y > 0 {
+                    let v = grid[y - 1][x];
+                    if (!slippery && v != '#') || v == '.' || v == '^' {
+                        choices.push(Direction::Up);
                     }
                 }
             }
             // down
-            if y < h - 1 {
-                let v = grid[y + 1][x];
-                if (!slippery && v != '#') || v == '.' || v == 'v' {
-                    if from != (x, y + 1) {
-                        choices.push((x, y + 1));
+            if incoming_direction != Direction::Up {
+                if y < h - 1 {
+                    let v = grid[y + 1][x];
+                    if (!slippery && v != '#') || v == '.' || v == 'v' {
+                        choices.push(Direction::Down);
                     }
                 }
             }
@@ -113,26 +138,73 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
 
             // Only one choice - continue path as not at a junction
             if choices.len() == 1 {
-                from = (x, y);
-                cur = *choices.first().unwrap();
-                if visited.contains(&cur) {
-                    break;
-                }
+                incoming_direction = *choices.first().unwrap();
+                loc = incoming_direction.translate(loc);
             } else {
-                // Reached a junction point - add the choices to the queue of paths to explore
-                for n in choices {
-                    // Take a copy of the visited set including the junction for each path
-                    let mut visited = visited.clone();
-                    visited.insert(cur);
-                    queue.push_back((Junction::new(n, cur, junction.distance + distance), visited));
+                // Reached a junction point
+                // if this node exists coming from the given incoming direction, add an edge and stop, otherwise add a node and push back all the points
+                let new_node = Node {
+                    loc,
+                    incoming_direction,
+                };
+
+                if !nodes.contains(&new_node) {
+                    nodes.insert(new_node);
+                    for d in choices {
+                        queue.push_back((new_node, d));
+                    }
                 }
+                edges.push(Edge {
+                    from: junction,
+                    to: new_node,
+                    distance,
+                });
+
                 // Hand back to the main loop to process these options
                 break;
             }
         }
     }
 
-    Some(valid_paths.into_iter().max().unwrap() - 1)
+    // Topological sort
+    let mut stack = VecDeque::new(); // TODO: return from dfs?
+    let mut visited = FxHashSet::default(); // TODO: size of nodes
+    for n in nodes {
+        topo_sort(n, &edges, &mut visited, &mut stack);
+    }
+
+    println!("Topological sort: {:#?}", stack);
+
+    // TODO: is there a way to eliminate cycles in the graph or filter out here?
+    // Find longest path
+    let mut max_distance = FxHashMap::default();
+    for n in stack {
+        // TODO: better data structure to find incoming neighbours
+        let d = edges
+            .iter()
+            .filter(|e| e.to == n)
+            .map(|e| max_distance.get(&e.from).unwrap_or(&0) + e.distance)
+            .max();
+        max_distance.insert(n, d.unwrap_or(0));
+    }
+
+    Some(*max_distance.get(&dest).unwrap())
+}
+
+fn topo_sort(
+    n: Node,
+    edges: &Vec<Edge>,
+    visited: &mut FxHashSet<Node>,
+    stack: &mut VecDeque<Node>,
+) {
+    if !visited.contains(&n) {
+        visited.insert(n);
+        // TODO: more efficient data structure?
+        for e in edges.iter().filter(|e| e.to == n) {
+            topo_sort(e.from, edges, visited, stack);
+        }
+        stack.push_back(n);
+    }
 }
 
 pub fn part_one(input: &str) -> Option<i32> {
