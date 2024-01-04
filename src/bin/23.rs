@@ -25,13 +25,13 @@ impl Direction {
     }
 }
 
+// TODO: simplify types
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
 struct Node {
     loc: (usize, usize),
-    incoming_direction: Direction,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct Edge {
     from: Node,
     to: Node,
@@ -46,13 +46,9 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         .collect_vec();
 
     let (w, h) = (grid[0].len(), grid.len());
-    let start = Node {
-        loc: (1, 0),
-        incoming_direction: Direction::Down,
-    };
+    let start = Node { loc: (1, 0) };
     let dest = Node {
         loc: (w - 2, h - 1),
-        incoming_direction: Direction::Down,
     };
 
     // TODO: too much copying of nodes instead of references?
@@ -82,10 +78,7 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
             if loc == dest.loc {
                 edges.push(Edge {
                     from: junction,
-                    to: Node {
-                        loc,
-                        incoming_direction,
-                    },
+                    to: Node { loc },
                     distance,
                 });
                 break;
@@ -143,10 +136,7 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
             } else {
                 // Reached a junction point
                 // if this node exists coming from the given incoming direction, add an edge and stop, otherwise add a node and push back all the points
-                let new_node = Node {
-                    loc,
-                    incoming_direction,
-                };
+                let new_node = Node { loc };
 
                 if !nodes.contains(&new_node) {
                     nodes.insert(new_node);
@@ -159,6 +149,14 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
                     to: new_node,
                     distance,
                 });
+                // TODO: filter dupes? Need to account for going wrong way. Better way of doing this for p1 + p2
+                if !slippery {
+                    edges.push(Edge {
+                        from: new_node,
+                        to: junction,
+                        distance,
+                    });
+                }
 
                 // Hand back to the main loop to process these options
                 break;
@@ -166,45 +164,44 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         }
     }
 
-    // Topological sort
-    let mut stack = VecDeque::new(); // TODO: return from dfs?
-    let mut visited = FxHashSet::default(); // TODO: size of nodes
-    for n in nodes {
-        topo_sort(n, &edges, &mut visited, &mut stack);
-    }
+    println!("edges {:?}", edges.len());
 
-    println!("Topological sort: {:#?}", stack);
+    let hs = FxHashSet::from_iter(edges);
+    println!("hs {:?}", hs.len());
+    let edges = Vec::from_iter(hs);
 
-    // TODO: is there a way to eliminate cycles in the graph or filter out here?
-    // Find longest path
-    let mut max_distance = FxHashMap::default();
-    for n in stack {
-        // TODO: better data structure to find incoming neighbours
-        let d = edges
-            .iter()
-            .filter(|e| e.to == n)
-            .map(|e| max_distance.get(&e.from).unwrap_or(&0) + e.distance)
-            .max();
-        max_distance.insert(n, d.unwrap_or(0));
-    }
-
-    Some(*max_distance.get(&dest).unwrap())
+    let mut visited = FxHashSet::default(); // TODO: size of nodes, use vec instead
+    find_max_distance(dest, start, &edges, &mut visited)
 }
 
-fn topo_sort(
+fn find_max_distance(
     n: Node,
+    start: Node,
     edges: &Vec<Edge>,
     visited: &mut FxHashSet<Node>,
-    stack: &mut VecDeque<Node>,
-) {
+) -> Option<i32> {
+    if n == start {
+        return Some(0);
+    }
+
+    // TODO: memoise dfs
+    let mut distance = None;
     if !visited.contains(&n) {
+        // println!("Seen {:#?}", n);
         visited.insert(n);
         // TODO: more efficient data structure?
         for e in edges.iter().filter(|e| e.to == n) {
-            topo_sort(e.from, edges, visited, stack);
+            if let Some(d) = find_max_distance(e.from, start, edges, visited) {
+                // println!("d {:?} -> {:?} = {d}", e.to, e.from);
+                distance = distance.max(Some(d + e.distance));
+                // println!("max distance {:?}", distance);
+            }
         }
-        stack.push_back(n);
+        visited.remove(&n);
+    } else {
+        // println!("Skip {:#?}", n);
     }
+    distance
 }
 
 pub fn part_one(input: &str) -> Option<i32> {
