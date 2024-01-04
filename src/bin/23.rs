@@ -47,10 +47,6 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
     let mut queue = VecDeque::new();
     queue.push_back((start, Direction::Down));
 
-    let mut nodes = FxHashSet::default();
-    nodes.insert(start);
-    nodes.insert(dest);
-
     let mut edges = Vec::new();
 
     // Traverse remaining junction points that haven't been discovered yet
@@ -135,7 +131,6 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
                 };
 
                 if !edges.contains(&new_edge) {
-                    nodes.insert(loc);
                     for d in choices {
                         queue.push_back((loc, d));
                     }
