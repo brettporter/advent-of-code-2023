@@ -25,10 +25,10 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
 struct Node {
     loc: (usize, usize),
-    incoming_direction: Direction,
+    visited: Vec<(usize, usize)>,
 }
 
 #[derive(Debug)]
@@ -48,22 +48,18 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
     let (w, h) = (grid[0].len(), grid.len());
     let start = Node {
         loc: (1, 0),
-        incoming_direction: Direction::Down,
+        visited: vec![],
     };
-    let dest = Node {
-        loc: (w - 2, h - 1),
-        incoming_direction: Direction::Down,
-    };
+    let dest = (w - 2, h - 1);
 
     // TODO: too much copying of nodes instead of references?
     let mut queue = VecDeque::new();
-    queue.push_back((start, Direction::Down));
+    queue.push_back((start.clone(), Direction::Down));
 
     // TODO: ignore direction if slippery, as it is inherently directed
 
     let mut nodes = FxHashSet::default();
     nodes.insert(start);
-    nodes.insert(dest);
 
     let mut edges = Vec::new(); // TODO: correct data structure?
 
@@ -79,13 +75,14 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         loop {
             distance += 1;
 
-            if loc == dest.loc {
+            if loc == dest {
+                let mut visited = junction.visited.clone();
+                visited.push(dest);
+                let nn = Node { loc, visited };
+                nodes.insert(nn.clone());
                 edges.push(Edge {
                     from: junction,
-                    to: Node {
-                        loc,
-                        incoming_direction,
-                    },
+                    to: nn,
                     distance,
                 });
                 break;
@@ -143,20 +140,25 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
             } else {
                 // Reached a junction point
                 // if this node exists coming from the given incoming direction, add an edge and stop, otherwise add a node and push back all the points
-                let new_node = Node {
-                    loc,
-                    incoming_direction,
-                };
+                if junction.visited.contains(&loc) {
+                    break;
+                }
+
+                // TOOD: cleanup unecessary cloning
+
+                let mut visited = junction.visited.clone();
+                visited.push(loc);
+                let new_node = Node { loc, visited };
 
                 if !nodes.contains(&new_node) {
-                    nodes.insert(new_node);
                     for d in choices {
-                        queue.push_back((new_node, d));
+                        queue.push_back((new_node.clone(), d));
                     }
+                    nodes.insert(new_node.clone());
                 }
                 edges.push(Edge {
                     from: junction,
-                    to: new_node,
+                    to: new_node.clone(),
                     distance,
                 });
 
@@ -173,9 +175,10 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         topo_sort(n, &edges, &mut visited, &mut stack);
     }
 
-    println!("Topological sort: {:#?}", stack);
+    // println!("Topological sort: {:#?}", stack);
 
     // TODO: is there a way to eliminate cycles in the graph or filter out here?
+    // TODO: only add the biggest ones...
     // Find longest path
     let mut max_distance = FxHashMap::default();
     for n in stack {
@@ -185,10 +188,13 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
             .filter(|e| e.to == n)
             .map(|e| max_distance.get(&e.from).unwrap_or(&0) + e.distance)
             .max();
-        max_distance.insert(n, d.unwrap_or(0));
+        max_distance.insert(n.clone(), d.unwrap_or(0));
     }
 
-    Some(*max_distance.get(&dest).unwrap())
+    max_distance
+        .into_iter()
+        .filter_map(|(n, d)| (n.loc == dest).then_some(d))
+        .max()
 }
 
 fn topo_sort(
@@ -198,10 +204,10 @@ fn topo_sort(
     stack: &mut VecDeque<Node>,
 ) {
     if !visited.contains(&n) {
-        visited.insert(n);
+        visited.insert(n.clone());
         // TODO: more efficient data structure?
         for e in edges.iter().filter(|e| e.to == n) {
-            topo_sort(e.from, edges, visited, stack);
+            topo_sort(e.from.clone(), edges, visited, stack);
         }
         stack.push_back(n);
     }
