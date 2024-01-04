@@ -1,12 +1,11 @@
 use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashSet;
 
 advent_of_code::solution!(23);
 
-// TODO: could we reuse from Day 17?
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy)]
 enum Direction {
     Up,
     Right,
@@ -25,13 +24,9 @@ impl Direction {
     }
 }
 
-// TODO: simplify types
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
-struct Node {
-    loc: (usize, usize),
-}
+type Node = (usize, usize);
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(PartialEq)]
 struct Edge {
     from: Node,
     to: Node,
@@ -46,28 +41,22 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         .collect_vec();
 
     let (w, h) = (grid[0].len(), grid.len());
-    let start = Node { loc: (1, 0) };
-    let dest = Node {
-        loc: (w - 2, h - 1),
-    };
+    let start = (1, 0);
+    let dest = (w - 2, h - 1);
 
-    // TODO: too much copying of nodes instead of references?
     let mut queue = VecDeque::new();
     queue.push_back((start, Direction::Down));
-
-    // TODO: ignore direction if slippery, as it is inherently directed
 
     let mut nodes = FxHashSet::default();
     nodes.insert(start);
     nodes.insert(dest);
 
-    let mut edges = Vec::new(); // TODO: correct data structure?
+    let mut edges = Vec::new();
 
-    // TODO: is it faster to pre-identify all the potential nodes based on graph and stop edges at all of these, even if fewer options in part 1?
     // Traverse remaining junction points that haven't been discovered yet
     while let Some((junction, next_direction)) = queue.pop_front() {
         // move in the desired direction of this path
-        let mut loc = next_direction.translate(junction.loc);
+        let mut loc = next_direction.translate(junction);
         let mut incoming_direction = next_direction;
 
         let mut distance = 0;
@@ -75,12 +64,15 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         loop {
             distance += 1;
 
-            if loc == dest.loc {
-                edges.push(Edge {
+            if loc == dest {
+                let edge = Edge {
                     from: junction,
-                    to: Node { loc },
+                    to: loc,
                     distance,
-                });
+                };
+                if !edges.contains(&edge) {
+                    edges.push(edge);
+                }
                 break;
             }
 
@@ -135,27 +127,19 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
                 loc = incoming_direction.translate(loc);
             } else {
                 // Reached a junction point
-                // if this node exists coming from the given incoming direction, add an edge and stop, otherwise add a node and push back all the points
-                let new_node = Node { loc };
-
-                if !nodes.contains(&new_node) {
-                    nodes.insert(new_node);
-                    for d in choices {
-                        queue.push_back((new_node, d));
-                    }
-                }
-                edges.push(Edge {
+                // if this edge has not been found yet, add a new node if needed, then an edge, and explore any outward junction points
+                let new_edge = Edge {
                     from: junction,
-                    to: new_node,
+                    to: loc,
                     distance,
-                });
-                // TODO: filter dupes? Need to account for going wrong way. Better way of doing this for p1 + p2
-                if !slippery {
-                    edges.push(Edge {
-                        from: new_node,
-                        to: junction,
-                        distance,
-                    });
+                };
+
+                if !edges.contains(&new_edge) {
+                    nodes.insert(loc);
+                    for d in choices {
+                        queue.push_back((loc, d));
+                    }
+                    edges.push(new_edge);
                 }
 
                 // Hand back to the main loop to process these options
@@ -164,13 +148,7 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         }
     }
 
-    println!("edges {:?}", edges.len());
-
-    let hs = FxHashSet::from_iter(edges);
-    println!("hs {:?}", hs.len());
-    let edges = Vec::from_iter(hs);
-
-    let mut visited = FxHashSet::default(); // TODO: size of nodes, use vec instead
+    let mut visited = FxHashSet::default(); // TODO: size of nodes, use vec instead?
     find_max_distance(dest, start, &edges, &mut visited)
 }
 
@@ -184,22 +162,15 @@ fn find_max_distance(
         return Some(0);
     }
 
-    // TODO: memoise dfs
     let mut distance = None;
     if !visited.contains(&n) {
-        // println!("Seen {:#?}", n);
         visited.insert(n);
-        // TODO: more efficient data structure?
         for e in edges.iter().filter(|e| e.to == n) {
             if let Some(d) = find_max_distance(e.from, start, edges, visited) {
-                // println!("d {:?} -> {:?} = {d}", e.to, e.from);
                 distance = distance.max(Some(d + e.distance));
-                // println!("max distance {:?}", distance);
             }
         }
         visited.remove(&n);
-    } else {
-        // println!("Skip {:#?}", n);
     }
     distance
 }
