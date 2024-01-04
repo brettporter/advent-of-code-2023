@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use itertools::Itertools;
-use rustc_hash::FxHashSet;
 
 advent_of_code::solution!(23);
 
@@ -24,12 +23,9 @@ impl Direction {
     }
 }
 
-type Node = (usize, usize);
-
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 struct Edge {
-    from: Node,
-    to: Node,
+    from_idx: usize,
     distance: i32,
 }
 
@@ -44,15 +40,20 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
     let start = (1, 0);
     let dest = (w - 2, h - 1);
 
-    let mut queue = VecDeque::new();
-    queue.push_back((start, Direction::Down));
+    let mut edges: Vec<Vec<Edge>> = Vec::new();
+    let mut nodes = Vec::new();
+    let start_idx = nodes.len();
+    nodes.push(start);
+    let dest_idx = nodes.len();
+    nodes.push(dest);
 
-    let mut edges = Vec::new();
+    let mut queue = VecDeque::new();
+    queue.push_back((start_idx, Direction::Down));
 
     // Traverse remaining junction points that haven't been discovered yet
     while let Some((junction, next_direction)) = queue.pop_front() {
         // move in the desired direction of this path
-        let mut loc = next_direction.translate(junction);
+        let mut loc = next_direction.translate(nodes[junction]);
         let mut incoming_direction = next_direction;
 
         let mut distance = 0;
@@ -62,12 +63,11 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
 
             if loc == dest {
                 let edge = Edge {
-                    from: junction,
-                    to: loc,
+                    from_idx: junction,
                     distance,
                 };
-                if !edges.contains(&edge) {
-                    edges.push(edge);
+                if !edges[dest_idx].contains(&edge) {
+                    edges[dest_idx].push(edge);
                 }
                 break;
             }
@@ -124,17 +124,23 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
             } else {
                 // Reached a junction point
                 // if this edge has not been found yet, add a new node if needed, then an edge, and explore any outward junction points
-                let new_edge = Edge {
-                    from: junction,
-                    to: loc,
+                let loc_idx = if let Some(idx) = nodes.iter().position(|&n| n == loc) {
+                    idx
+                } else {
+                    nodes.push(loc);
+                    edges.resize(nodes.len(), vec![]);
+                    nodes.len() - 1
+                };
+                let edge = Edge {
+                    from_idx: junction,
                     distance,
                 };
 
-                if !edges.contains(&new_edge) {
+                if !edges[loc_idx].contains(&edge) {
                     for d in choices {
-                        queue.push_back((loc, d));
+                        queue.push_back((loc_idx, d));
                     }
-                    edges.push(new_edge);
+                    edges[loc_idx].push(edge);
                 }
 
                 // Hand back to the main loop to process these options
@@ -143,31 +149,31 @@ fn traverse_grid(input: &str, slippery: bool) -> Option<i32> {
         }
     }
 
-    let mut visited = FxHashSet::default(); // TODO: size of nodes, use vec instead?
-    find_max_distance(dest, start, &edges, &mut visited)
+    let mut visited = vec![false; nodes.len()];
+    find_max_distance(dest_idx, start_idx, &edges, &mut visited)
 }
 
 fn find_max_distance(
-    n: Node,
-    start: Node,
-    edges: &Vec<Edge>,
-    visited: &mut FxHashSet<Node>,
+    n: usize,
+    start: usize,
+    edges: &Vec<Vec<Edge>>,
+    visited: &mut Vec<bool>,
 ) -> Option<i32> {
     if n == start {
         return Some(0);
     }
 
-    let mut distance = None;
-    if !visited.contains(&n) {
-        visited.insert(n);
-        for e in edges.iter().filter(|e| e.to == n) {
-            if let Some(d) = find_max_distance(e.from, start, edges, visited) {
-                distance = distance.max(Some(d + e.distance));
+    let mut max_distance = None;
+    if !visited[n] {
+        visited[n] = true;
+        for e in &edges[n] {
+            if let Some(d) = find_max_distance(e.from_idx, start, edges, visited) {
+                max_distance = max_distance.max(Some(d + e.distance));
             }
         }
-        visited.remove(&n);
+        visited[n] = false;
     }
-    distance
+    max_distance
 }
 
 pub fn part_one(input: &str) -> Option<i32> {
